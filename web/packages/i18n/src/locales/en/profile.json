@@ -1,0 +1,13 @@
+{
+  "title": "Profile",
+  "displayName": "Name",
+  "timeZone": "Time zone",
+  "timeZoneHint": "Times in the app are shown in this time zone",
+  "methods.title": "Sign-in methods",
+  "methods.add": "Add {{method}}",
+  "methods.addEmail": "Add an email",
+  "delete.title": "Delete account",
+  "delete.warning": "Your account and all related data will be deleted permanently.",
+  "delete.start": "Delete account",
+  "delete.confirm": "Yes, delete permanently"
+}

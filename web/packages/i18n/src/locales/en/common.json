@@ -1,0 +1,19 @@
+{
+  "appName": "CareNest",
+  "home": "Home",
+  "profile": "Profile",
+  "signOut": "Sign out",
+  "save": "Save",
+  "saved": "Saved",
+  "cancel": "Cancel",
+  "copy": "Copy",
+  "copied": "Copied",
+  "mainNav": "Main navigation",
+  "theme.label": "Theme",
+  "theme.system": "System",
+  "theme.light": "Light",
+  "theme.dark": "Dark",
+  "language.label": "Language",
+  "language.ru": "Русский",
+  "language.en": "English"
+}
