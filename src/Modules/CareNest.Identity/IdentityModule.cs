@@ -38,7 +38,8 @@ public static class IdentityModule
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<IdentityModuleDbContext>()
             .AddSignInManager();
-        services.Configure<SecurityStampValidatorOptions>(options => options.ValidationInterval = TimeSpan.FromMinutes(5));
+        // Zero means every request re-checks the user and security stamp, so a deleted or role-changed account cannot keep acting on a cached cookie.
+        services.Configure<SecurityStampValidatorOptions>(options => options.ValidationInterval = TimeSpan.Zero);
 
         var authentication = services.AddAuthentication(IdentityConstants.ApplicationScheme);
         authentication.AddIdentityCookies();

@@ -71,4 +71,21 @@ public class AccountDeletionTests(ApiFactory factory)
         (await laptop.PutAsJsonAsync("/api/identity/me", new { displayName = "Ghost", language = "en", timeZone = "UTC" }))
             .StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
+
+    [Fact]
+    public async Task Consultant_session_on_another_device_stops_working_after_deletion()
+    {
+        var email = NewEmail("consultant");
+        var admin = await factory.GetAdminClientAsync();
+        (await admin.PostAsJsonAsync("/api/identity/admin/consultants", new { email, displayName = "Consultant" }))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
+        var phone = await factory.SignedInClientAsync(email);
+        var laptop = await factory.SignedInClientAsync(email);
+
+        (await phone.DeleteAsync("/api/identity/me")).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (await laptop.GetAsync("/api/identity/clients")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        (await laptop.GetAsync("/api/identity/invitations")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        (await laptop.PostAsync("/api/identity/invitations", null)).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+    }
 }
