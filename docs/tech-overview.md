@@ -298,6 +298,19 @@ YouTube (EN): `Vitest tutorial`
 Официальная документация: https://www.i18next.com/, https://react.i18next.com/
 YouTube (RU): `i18next react локализация`
 
+### 17.5 Tailwind CSS, Radix, тема
+
+**Tailwind CSS** (v4) - CSS через классы прямо в разметке (`rounded-full px-5`). Цвета заданы токенами в `web/packages/ui/src/styles.css`: палитра по умолчанию взята с сайта консультанта-пилота (коралловый акцент, персиковый фон), но это только значения переменных, так что другой консультант может получить свою тему. **Radix** даёт доступные примитивы (метка поля, `Slot` для кнопки-ссылки), **lucide-react** - иконки. Компоненты написаны в стиле **shadcn/ui**: это не библиотека, а исходники в нашем пакете `ui`, которые мы правим сами.
+
+Тема: "как в системе" (по умолчанию), светлая или тёмная - переключатель в шапке обоих приложений. Выбор хранится на устройстве (`localStorage`, ключ `cn.theme`) и применяется скриптом в `index.html` ещё до отрисовки, чтобы ночью не мигал белый экран.
+
+### 17.6 MSW: фейковый API в компонентных тестах
+
+**MSW** (Mock Service Worker) перехватывает `fetch` в тестах и отвечает как API: тест говорит "на `POST /api/identity/email/start` ответь 202" и проверяет, что компонент отправил и показал. Общий набор для тестов - `@carenest/ui/testing`.
+
+Официальная документация: https://tailwindcss.com/docs, https://www.radix-ui.com/primitives, https://ui.shadcn.com/, https://mswjs.io/docs/
+YouTube (EN): `Tailwind CSS v4 crash course`, `shadcn ui tutorial`, `MSW mock service worker tutorial`
+
 ## 18. Что почитать и посмотреть
 
 **.NET 10 / ASP.NET Core / Minimal API**
