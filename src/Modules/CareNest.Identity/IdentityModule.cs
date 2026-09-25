@@ -53,6 +53,7 @@ public static class IdentityModule
 
         services.AddSingleton<ReturnUrlPolicy>();
         services.AddScoped<AccountService>();
+        services.AddScoped<AccountDeletionService>();
 
         services.AddOptions<EmailOptions>()
             .Bind(builder.Configuration.GetSection(EmailOptions.Section))

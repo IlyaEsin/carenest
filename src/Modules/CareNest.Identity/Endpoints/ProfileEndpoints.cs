@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using CareNest.Identity.Accounts;
 using CareNest.Identity.Domain;
 using CareNest.Identity.Security;
 using CareNest.SharedKernel.Validation;
@@ -17,6 +18,7 @@ internal static class ProfileEndpoints
         var me = group.MapGroup("/me").RequireAuthorization();
         me.MapGet("", GetAsync);
         me.MapPut("", UpdateAsync).WithRequestValidation<UpdateProfileRequest>();
+        me.MapDelete("", DeleteAsync);
         group.MapPost("/signout", SignOutAsync);
         return me;
     }
@@ -57,6 +59,24 @@ internal static class ProfileEndpoints
         user.TimeZone = request.TimeZone;
         (await users.UpdateAsync(user)).ThrowIfFailed();
         return TypedResults.Ok(await ToResponseAsync(user, users));
+    }
+
+    private static async Task<Results<NoContent, UnauthorizedHttpResult>> DeleteAsync(
+        ClaimsPrincipal principal,
+        UserManager<User> users,
+        AccountDeletionService deletion,
+        SignInManager<User> signIn,
+        CancellationToken cancellationToken)
+    {
+        var user = await users.GetUserAsync(principal);
+        if (user is null)
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        await deletion.DeleteAsync(user, cancellationToken);
+        await signIn.SignOutAsync();
+        return TypedResults.NoContent();
     }
 
     private static async Task<NoContent> SignOutAsync(SignInManager<User> signIn)
