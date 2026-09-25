@@ -275,6 +275,10 @@ GitHub Actions workflow `.github/workflows/backend.yml` запускается �
 
 `main` защищён: изменения попадают туда только через pull request с зелёным CI.
 
+Ещё два workflow:
+- `.github/workflows/frontend.yml` - в `web/`: `pnpm install --frozen-lockfile`, линтер, проверка типов, тесты Vitest (включая проверку одинаковых ключей RU/EN и перевода каждого кода ошибки), сборка обоих приложений и проверка, что сгенерированный клиент API совпадает с `openapi.json`. Вместе с тестом `OpenApiContractTests` в backend-workflow это даёт цепочку "код API -> openapi.json -> клиент".
+- `.github/workflows/e2e.yml` - ставит .NET, Node, pnpm и Chromium, доверяет dev-сертификату и запускает сценарии Playwright; Playwright сам поднимает весь стек через Aspire AppHost (Docker на раннерах GitHub есть). При падении отчёт Playwright прикладывается к запуску.
+
 ## 16. Azure (план 3, ещё не настроен и не оплачен)
 
 Важно: то, что описано ниже, - это план, зафиксированный в спецификации, а не работающая инфраструктура. Ничего из этого раздела в репозитории пока не развёрнуто и не оплачивается.
@@ -420,11 +424,15 @@ YouTube (EN): `TanStack Router tutorial`, `TanStack Query v5 tutorial`, `vite-pl
 - YouTube (RU): `Azure Container Apps обзор`
 - YouTube (EN): `Azure Developer CLI azd tutorial`
 
-**Фронтенд (план 2)**
-- https://vite.dev/guide/
-- https://react.dev/
-- https://www.typescriptlang.org/docs/
+**Фронтенд**
 - https://pnpm.io/workspaces
+- https://vite.dev/guide/ и https://react.dev/
+- https://www.typescriptlang.org/docs/
+- https://tanstack.com/router/latest/docs и https://tanstack.com/query/latest/docs
+- https://orval.dev/
+- https://www.i18next.com/
+- https://tailwindcss.com/docs и https://ui.shadcn.com/
 - https://vite-pwa-org.netlify.app/guide/
+- https://vitest.dev/guide/ и https://mswjs.io/docs/
 - YouTube (RU): `Vite React TypeScript обзор`
-- YouTube (EN): `Vite React TypeScript tutorial`
+- YouTube (EN): `TanStack Router tutorial`
