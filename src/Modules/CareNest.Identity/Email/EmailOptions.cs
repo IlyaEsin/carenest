@@ -1,3 +1,5 @@
+using System.Data.Common;
+
 namespace CareNest.Identity.Email;
 
 internal sealed class EmailOptions
@@ -17,13 +19,34 @@ internal sealed class EmailOptions
 
     public string? Password { get; set; }
 
-    // Aspire's Mailpit resource provides "smtp://host:port"; production configures the Email section instead.
+    // Aspire's Mailpit resource provides "Endpoint=smtp://host:port" (a key-value connection string); a bare "smtp://host:port" URI is also accepted; production configures the Email section instead.
     public void ApplyConnectionString(string? connectionString)
     {
         if (Uri.TryCreate(connectionString, UriKind.Absolute, out var uri))
         {
             Host = uri.Host;
             Port = uri.Port;
+            return;
+        }
+
+        if (connectionString is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var builder = new DbConnectionStringBuilder { ConnectionString = connectionString };
+            if (builder.TryGetValue("Endpoint", out var endpoint)
+                && Uri.TryCreate(endpoint as string, UriKind.Absolute, out var endpointUri))
+            {
+                Host = endpointUri.Host;
+                Port = endpointUri.Port;
+            }
+        }
+        catch (ArgumentException)
+        {
+            // Unparseable connection string: keep the configured values.
         }
     }
 }

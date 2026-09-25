@@ -37,6 +37,17 @@ public class EmailTests
     }
 
     [Fact]
+    public void Aspire_endpoint_connection_string_sets_host_and_port()
+    {
+        var options = new EmailOptions();
+
+        options.ApplyConnectionString("Endpoint=smtp://localhost:41025");
+
+        options.Host.ShouldBe("localhost");
+        options.Port.ShouldBe(41025);
+    }
+
+    [Fact]
     public void Missing_connection_string_keeps_configured_values()
     {
         var options = new EmailOptions { Host = "smtp.azurecomm.net", Port = 587 };
