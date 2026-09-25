@@ -1,0 +1,16 @@
+{
+  "name": "carenest-e2e",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.5",
+  "scripts": {
+    "test": "playwright test --project=smoke",
+    "walkthrough": "playwright test --project=walkthrough",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "26.6.2",
+    "typescript": "6.0.3"
+  }
+}

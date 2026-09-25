@@ -254,6 +254,7 @@ Docker - платформа для запуска приложений в изо
 - **Testcontainers** (`Testcontainers.PostgreSql`) - для `CareNest.Api.IntegrationTests`: вместо мока базы данных или SQLite поднимается настоящий PostgreSQL в Docker-контейнере на время теста, так тесты проверяют поведение на той же СУБД, что и в проде (включая NodaTime-типы, `jsonb` и специфичные для PostgreSQL детали).
 - **NetArchTest** (`NetArchTest.Rules`) - библиотека для тестов, которые проверяют не поведение кода, а его структуру: например, "ни один класс из модуля Identity, кроме публичного API, не должен быть виден снаружи" (`CareNest.ArchitectureTests`).
 - **FakeClock** (`NodaTime.Testing`) - подменяет `IClock` в тестах, чтобы управлять "текущим временем" напрямую (раздел 7).
+- **Playwright** (`tests/e2e/`) - сквозные тесты в настоящем браузере против всего стека, поднятого Aspire: вход по ссылке из письма (письмо читается из Mailpit через его HTTP API), профиль и мгновенная смена языка, тема, консультант приглашает родителя из другого часового пояса и оба видят местное время друг друга, повторное приглашение, второй способ входа через тестовый провайдер. Родительские страницы открываются в размере телефона. `pnpm test` - без окна (так же в CI), `pnpm walkthrough` - в видимом браузере с паузами, как живая демонстрация. Если AppHost не запущен, Playwright запускает его сам.
 
 Команды (из `CLAUDE.md`):
 
@@ -381,6 +382,10 @@ YouTube (EN): `TanStack Router tutorial`, `TanStack Query v5 tutorial`, `vite-pl
 - Telegram Mini Apps: https://core.telegram.org/bots/webapps
 - YouTube (RU): `ASP.NET Core Identity без пароля`
 - YouTube (EN): `ASP.NET Core Identity passwordless magic link`
+
+**Playwright**
+- https://playwright.dev/docs/intro
+- YouTube (EN): `Playwright end to end testing tutorial`
 
 **.NET Aspire**
 - https://learn.microsoft.com/en-us/dotnet/aspire/
