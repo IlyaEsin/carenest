@@ -1,6 +1,6 @@
 import { configureApi } from '@carenest/api-client';
 import { createI18n, detectBrowserLanguage } from '@carenest/i18n';
-import { AppProviders, createQueryClient } from '@carenest/ui';
+import { AppProviders, createQueryClient, NotFound, RouteError } from '@carenest/ui';
 import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -11,7 +11,13 @@ configureApi({ baseUrl: import.meta.env.VITE_API_BASE_URL ?? '' });
 
 const queryClient = createQueryClient();
 const i18n = createI18n(detectBrowserLanguage());
-const router = createRouter({ routeTree, context: { queryClient }, scrollRestoration: true });
+const router = createRouter({
+  routeTree,
+  context: { queryClient },
+  scrollRestoration: true,
+  defaultErrorComponent: RouteError,
+  defaultNotFoundComponent: NotFound,
+});
 
 declare module '@tanstack/react-router' {
   interface Register {

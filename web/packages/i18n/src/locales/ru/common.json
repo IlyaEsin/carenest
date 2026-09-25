@@ -15,5 +15,10 @@
   "theme.dark": "Тёмная",
   "language.label": "Язык",
   "language.ru": "Русский",
-  "language.en": "English"
+  "language.en": "English",
+  "routeError.title": "Что-то пошло не так",
+  "routeError.retry": "Повторить",
+  "notFound.title": "Страница не найдена",
+  "notFound.body": "Такой страницы не существует.",
+  "notFound.home": "На главную"
 }
