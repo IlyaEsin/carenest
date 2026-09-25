@@ -3,8 +3,18 @@ import { apiUrl, getStartExternalSignInUrl } from '@carenest/api-client';
 export type SignInMode = 'signin' | 'link';
 
 // "next" comes from the address bar, so only same-app paths are followed; anything else lands on home.
+// Browsers strip tab/CR/LF while parsing a URL, so a prefix check alone lets '/\t/evil.example' resolve off-origin;
+// resolving against the app's own origin and comparing origins catches that (and stays robust to other tricks).
 export function safeNext(value: unknown): string {
   if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) {
+    return '/';
+  }
+
+  try {
+    if (new URL(value, window.location.origin).origin !== window.location.origin) {
+      return '/';
+    }
+  } catch {
     return '/';
   }
 

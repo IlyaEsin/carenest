@@ -7,12 +7,20 @@ describe('safeNext', () => {
     expect(safeNext(path)).toBe(path);
   });
 
-  it.each(['https://evil.example/', '//evil.example/x', '/\\evil.example', 'javascript:alert(1)', '', undefined, 42])(
-    'replaces %s with home',
-    (value) => {
-      expect(safeNext(value)).toBe('/');
-    },
-  );
+  it.each([
+    'https://evil.example/',
+    '//evil.example/x',
+    '/\\evil.example',
+    'javascript:alert(1)',
+    '',
+    undefined,
+    42,
+    '/\t/evil.example',
+    '/\n/evil.example',
+    '/\r/evil.example',
+  ])('replaces %s with home', (value) => {
+    expect(safeNext(value)).toBe('/');
+  });
 });
 
 describe('callback URLs', () => {
