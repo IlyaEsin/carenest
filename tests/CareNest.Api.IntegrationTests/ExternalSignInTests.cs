@@ -16,7 +16,7 @@ public class ExternalSignInTests(ApiFactory factory)
         var response = await factory.CreateHttpsClient().GetAsync("/api/identity/providers");
 
         var providers = await response.ReadAsAsync<ProvidersResponse>();
-        providers.Providers.ShouldBe(new[] { "email", "Google", "Telegram" });
+        providers.Providers.ShouldBe(new[] { "email", "Google", "Fake", "Telegram" });
         providers.TelegramBotName.ShouldBe("carenest_test_bot");
     }
 
