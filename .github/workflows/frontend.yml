@@ -1,0 +1,55 @@
+name: frontend
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: web
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test (includes i18n key parity and error-code coverage)
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      # The build step regenerates the route trees via the TanStack Router plugin; they must not drift from what is committed.
+      - name: Generated route trees match what is committed
+        run: git diff --exit-code -- apps/client/src/routeTree.gen.ts apps/studio/src/routeTree.gen.ts
+
+      # The backend job pins openapi.json to the served document; this pins the generated client to openapi.json.
+      - name: Generated API client matches the OpenAPI snapshot
+        run: |
+          pnpm generate:api
+          git diff --exit-code -- packages/api-client/src/generated
+          test -z "$(git status --porcelain -- packages/api-client/src/generated)"

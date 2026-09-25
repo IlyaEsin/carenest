@@ -51,7 +51,9 @@ Content-Type: application/json
 
 {
   "email": "consultant@example.com",
-  "displayName": "Имя консультанта"
+  "displayName": "Имя консультанта",
+  "language": "ru",
+  "timeZone": "Europe/Moscow"
 }
 
 
@@ -129,6 +131,10 @@ Content-Type: application/json
 {
   "token": "{{invitationToken}}"
 }
+
+
+### 14a) Мои консультанты (родитель): имя и часовой пояс консультанта
+GET {{api}}/api/identity/me/consultants
 
 
 ### 15) Выйти из сессии родителя

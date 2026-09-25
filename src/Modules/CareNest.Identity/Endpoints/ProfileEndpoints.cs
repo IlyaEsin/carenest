@@ -16,10 +16,10 @@ internal static class ProfileEndpoints
     public static RouteGroupBuilder MapProfile(this RouteGroupBuilder group)
     {
         var me = group.MapGroup("/me").RequireAuthorization();
-        me.MapGet("", GetAsync);
-        me.MapPut("", UpdateAsync).WithRequestValidation<UpdateProfileRequest>();
-        me.MapDelete("", DeleteAsync);
-        group.MapPost("/signout", SignOutAsync);
+        me.MapGet("", GetAsync).WithName("GetMe");
+        me.MapPut("", UpdateAsync).WithName("UpdateMe").WithRequestValidation<UpdateProfileRequest>();
+        me.MapDelete("", DeleteAsync).WithName("DeleteMe");
+        group.MapPost("/signout", SignOutAsync).WithName("SignOut");
         return me;
     }
 

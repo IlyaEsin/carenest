@@ -1,0 +1,44 @@
+import { waitFor } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import { describe, expect, it, vi } from 'vitest';
+import { renderWithProviders, testApi } from '../testing/render';
+import { server } from '../testing/server';
+import { TelegramLoginButton, telegramWidgetUrl } from './TelegramLoginButton';
+
+describe('TelegramLoginButton', () => {
+  it('loads the widget for the configured bot', () => {
+    const { container } = renderWithProviders(<TelegramLoginButton botName="carenest_bot" mode="signin" onSignedIn={vi.fn()} />);
+
+    const script = container.querySelector('script');
+    expect(script).toHaveAttribute('src', telegramWidgetUrl);
+    expect(script).toHaveAttribute('data-telegram-login', 'carenest_bot');
+    expect(script).toHaveAttribute('data-onauth', 'cnTelegramAuth(user)');
+  });
+
+  it('sends the widget payload to the API and reports success', async () => {
+    let body: Record<string, unknown> | undefined;
+    server.use(
+      http.post(`${testApi}/api/identity/telegram/complete`, async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const onSignedIn = vi.fn();
+    renderWithProviders(<TelegramLoginButton botName="carenest_bot" mode="link" onSignedIn={onSignedIn} />);
+
+    window.cnTelegramAuth?.({ id: 42, first_name: 'Anna', auth_date: 1767603600, hash: 'abc' });
+
+    await waitFor(() => expect(onSignedIn).toHaveBeenCalled());
+    expect(body).toMatchObject({ auth: { id: 42, first_name: 'Anna' }, mode: 'link', language: 'en' });
+  });
+
+  it('removes the global callback on unmount', () => {
+    const { unmount } = renderWithProviders(<TelegramLoginButton botName="carenest_bot" mode="signin" onSignedIn={vi.fn()} />);
+
+    expect(window.cnTelegramAuth).toBeDefined();
+
+    unmount();
+
+    expect(window.cnTelegramAuth).toBeUndefined();
+  });
+});

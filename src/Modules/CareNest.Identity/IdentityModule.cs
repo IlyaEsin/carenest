@@ -25,6 +25,8 @@ public static class IdentityModule
 {
     public const string ConnectionStringName = "carenest";
 
+    public static IReadOnlyList<string> ErrorCodes => IdentityErrors.Codes;
+
     public static IHostApplicationBuilder AddIdentityModule(this IHostApplicationBuilder builder)
     {
         var services = builder.Services;
@@ -43,7 +45,7 @@ public static class IdentityModule
 
         var authentication = services.AddAuthentication(IdentityConstants.ApplicationScheme);
         authentication.AddIdentityCookies();
-        ExternalProviders.Register(authentication, builder.Configuration);
+        ExternalProviders.Register(authentication, builder.Configuration, builder.Environment);
         services.ConfigureApplicationCookie(ConfigureSessionCookie);
         services.AddOptions<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme)
             .Configure<IOptions<IdentityModuleOptions>>((cookie, identity) => cookie.Cookie.Domain = identity.Value.CookieDomain);

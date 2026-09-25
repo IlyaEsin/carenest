@@ -208,6 +208,9 @@ PublishScripts/
 **/[Pp]ackages/*
 # except build/, which is used as an MSBuild target.
 !**/[Pp]ackages/build/
+# and except web/packages/, the pnpm workspace's own packages directory (not a NuGet restore folder).
+!web/packages/*/
+!web/packages/**
 # Uncomment if necessary however generally it will be regenerated when needed
 #!**/[Pp]ackages/repositories.config
 # NuGet v3's project.json files produces more ignorable files
@@ -480,3 +483,10 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Web apps and e2e
+web/apps/*/dist/
+web/apps/*/dev-dist/
+tests/e2e/.auth/
+tests/e2e/playwright-report/
+

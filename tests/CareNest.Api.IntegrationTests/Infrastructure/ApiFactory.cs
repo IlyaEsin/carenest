@@ -49,6 +49,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Identity:TelegramBotName", "carenest_test_bot");
         builder.UseSetting("Identity:Providers:Google:ClientId", "test-google-client");
         builder.UseSetting("Identity:Providers:Google:ClientSecret", "test-google-secret");
+        builder.UseSetting("Identity:Providers:Fake:Enabled", "true");
         builder.ConfigureTestServices(services =>
         {
             services.AddSingleton<IClock>(Clock);

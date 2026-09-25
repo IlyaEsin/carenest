@@ -25,11 +25,16 @@ internal static class InvitationEndpoints
     public static void MapInvitations(this RouteGroupBuilder group)
     {
         var consultant = group.MapGroup("").RequireAuthorization(IdentityPolicies.Consultant);
-        consultant.MapPost("/invitations", CreateAsync);
-        consultant.MapGet("/invitations", ListAsync);
-        consultant.MapGet("/clients", ListClientsAsync);
+        consultant.MapPost("/invitations", CreateAsync).WithName("CreateInvitation");
+        consultant.MapGet("/invitations", ListAsync).WithName("ListInvitations");
+        consultant.MapGet("/clients", ListClientsAsync).WithName("ListClients");
+
+        group.MapGet("/me/consultants", ListMyConsultantsAsync)
+            .WithName("ListMyConsultants")
+            .RequireAuthorization();
 
         group.MapPost("/invitations/accept", AcceptAsync)
+            .WithName("AcceptInvitation")
             .RequireAuthorization()
             .WithRequestValidation<AcceptInvitationRequest>();
     }
@@ -75,9 +80,26 @@ internal static class InvitationEndpoints
             from link in db.ClientLinks
             join user in db.Users on link.ParentUserId equals user.Id
             orderby link.LinkedAt descending
-            select new ClientResponse(user.Id, user.DisplayName, link.LinkedAt))
+            select new ClientResponse(user.Id, user.DisplayName, user.Language, user.TimeZone, link.LinkedAt))
             .ToListAsync(cancellationToken);
         return TypedResults.Ok(clients);
+    }
+
+    private static async Task<Ok<List<ConsultantResponse>>> ListMyConsultantsAsync(
+        ClaimsPrincipal principal,
+        IdentityModuleDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var userId = principal.GetUserId()!.Value;
+        // The caller is the parent side of the link, which the consultant filter hides; the explicit parent id keeps this scoped.
+        var consultants = await (
+            from link in db.ClientLinks.IgnoreQueryFilters()
+            join user in db.Users on link.ConsultantId equals user.Id
+            where link.ParentUserId == userId
+            orderby link.LinkedAt descending
+            select new ConsultantResponse(user.Id, user.DisplayName, user.TimeZone, link.LinkedAt))
+            .ToListAsync(cancellationToken);
+        return TypedResults.Ok(consultants);
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> AcceptAsync(

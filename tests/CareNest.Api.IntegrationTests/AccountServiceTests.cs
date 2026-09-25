@@ -103,8 +103,8 @@ public class AccountServiceTests(ApiFactory factory)
         var users = Users(scope);
         var email = $"Consultant-{Guid.NewGuid():N}@Example.Test";
 
-        var created = await accounts.EnsureConsultantAsync(email, "Regina", CancellationToken.None);
-        var again = await accounts.EnsureConsultantAsync(email.ToLowerInvariant(), "Regina", CancellationToken.None);
+        var created = await accounts.EnsureConsultantAsync(email, "Regina", Russian, CancellationToken.None);
+        var again = await accounts.EnsureConsultantAsync(email.ToLowerInvariant(), "Regina", Russian, CancellationToken.None);
 
         again.Id.ShouldBe(created.Id);
         created.DisplayName.ShouldBe("Regina");
@@ -120,7 +120,7 @@ public class AccountServiceTests(ApiFactory factory)
         var email = $"parent-{Guid.NewGuid():N}@example.test";
         var parent = (await accounts.ResolveAsync(new ExternalIdentity(EmailLogin.Provider, email, "P"), SignInMode.SignIn, null, Russian, CancellationToken.None)).User!;
 
-        var consultant = await accounts.EnsureConsultantAsync(email, "P", CancellationToken.None);
+        var consultant = await accounts.EnsureConsultantAsync(email, "P", Russian, CancellationToken.None);
 
         consultant.Id.ShouldBe(parent.Id);
         (await users.GetRolesAsync(consultant)).Order().ShouldBe(new[] { IdentityRoles.Consultant, IdentityRoles.Parent });

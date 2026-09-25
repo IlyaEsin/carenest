@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+/* Apps consume this package through node_modules, which Tailwind skips by default. */
+@source "./";
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* Default palette from the pilot consultant's site; another consultant gets a theme by overriding these tokens. */
+:root {
+  --cn-background: #ffffff;
+  --cn-surface: #ffffff;
+  --cn-muted: #ebebeb;
+  --cn-soft: #ffd8c4;
+  --cn-foreground: #222222;
+  --cn-muted-foreground: #5b5350;
+  --cn-accent: #ff4551;
+  --cn-accent-foreground: #ffffff;
+  --cn-secondary: #c7a18e;
+  --cn-strong: #451619;
+  --cn-border: #e3d8d3;
+  --cn-danger: #b3261e;
+  --cn-success: #2e7d32;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --cn-background: #16100f;
+  --cn-surface: #221a18;
+  --cn-muted: #2e2522;
+  --cn-soft: #3b2521;
+  --cn-foreground: #f4ece8;
+  --cn-muted-foreground: #bcaea8;
+  --cn-accent: #ff5c67;
+  --cn-accent-foreground: #1c0b0c;
+  --cn-secondary: #a88676;
+  --cn-strong: #ffd8c4;
+  --cn-border: #3d302c;
+  --cn-danger: #ff8a80;
+  --cn-success: #81c784;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--cn-background);
+  --color-surface: var(--cn-surface);
+  --color-muted: var(--cn-muted);
+  --color-soft: var(--cn-soft);
+  --color-foreground: var(--cn-foreground);
+  --color-muted-foreground: var(--cn-muted-foreground);
+  --color-accent: var(--cn-accent);
+  --color-accent-foreground: var(--cn-accent-foreground);
+  --color-secondary: var(--cn-secondary);
+  --color-strong: var(--cn-strong);
+  --color-border: var(--cn-border);
+  --color-danger: var(--cn-danger);
+  --color-success: var(--cn-success);
+  --font-sans: Arial, "Helvetica Neue", Helvetica, sans-serif;
+}
+
+body {
+  @apply bg-background font-sans text-foreground antialiased;
+  min-height: 100dvh;
+}

@@ -40,13 +40,13 @@ internal sealed class AccountService(
         }
     }
 
-    public async Task<User> EnsureConsultantAsync(string email, string displayName, CancellationToken cancellationToken)
+    public async Task<User> EnsureConsultantAsync(string email, string displayName, NewUserDefaults defaults, CancellationToken cancellationToken)
     {
         var normalized = EmailLogin.Normalize(email);
         var user = await users.FindByLoginAsync(EmailLogin.Provider, normalized)
             ?? await CreateUserAsync(
                 new ExternalIdentity(EmailLogin.Provider, normalized, displayName),
-                new NewUserDefaults(Languages.Default, TimeZones.Default),
+                defaults,
                 IdentityRoles.Consultant,
                 cancellationToken);
 

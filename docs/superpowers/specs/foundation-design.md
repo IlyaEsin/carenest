@@ -210,7 +210,11 @@ A user can delete their account. Deletion removes the user, their sign-in method
   - Locally they live in .NET user-secrets.
   - GitHub secret-scanning push protection is enabled.
 - **Operations:** automatic PostgreSQL backups with 7-day retention; an Azure budget alert at 30 USD per month.
-- **Portability:** everything runs in containers, so moving to a Russian VPS (if Russian data-residency law or reachability from Russia becomes a problem) is a redeploy, not a rewrite.
+- **Portability:** everything runs in containers, so moving to a Russian VPS (if Russian data-residency law or reachability from Russia becomes a problem) is a redeploy, not a rewrite. To keep it that way, application code uses no Azure SDK, only standard interfaces:
+  - secrets reach the app as configuration (environment variables filled from Key Vault references by Container Apps), never through a Key Vault client in code;
+  - email goes over SMTP (Azure Communication Services SMTP relay in production), so another provider is a settings change;
+  - telemetry goes through OpenTelemetry; the Azure Monitor exporter is switched on only in `CareNest.ServiceDefaults` when `APPLICATIONINSIGHTS_CONNECTION_STRING` is set;
+  - Azure-specific parts live only in the AppHost publish model, `infra/` and the deploy workflow. An architecture test fails if a module, SharedKernel or the API references an `Azure.*` package.
 
 ## 8. Acceptance criteria
 

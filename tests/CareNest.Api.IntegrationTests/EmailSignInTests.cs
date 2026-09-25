@@ -194,6 +194,63 @@ public class EmailSignInTests(ApiFactory factory)
         (await client.GetAsync("/api/identity/me")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
+    [Fact]
+    public async Task Magic_link_opened_in_another_browser_is_rejected_and_stays_usable()
+    {
+        var email = NewEmail();
+        var requester = factory.CreateHttpsClient();
+        await StartAsync(requester, email);
+        var token = factory.Emails.LatestTokenFor(email);
+
+        var elsewhere = await factory.CreateHttpsClient().PostAsJsonAsync("/api/identity/email/complete", new { token });
+
+        await elsewhere.ShouldBeProblemAsync(HttpStatusCode.Forbidden, "identity.magic_link_other_browser");
+        (await requester.PostAsJsonAsync("/api/identity/email/complete", new { token })).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task A_second_request_keeps_the_first_link_valid_in_the_same_browser()
+    {
+        var email = NewEmail();
+        var client = factory.CreateHttpsClient();
+        await StartAsync(client, email);
+        var first = factory.Emails.LatestTokenFor(email);
+        await StartAsync(client, email);
+
+        var complete = await client.PostAsJsonAsync("/api/identity/email/complete", new { token = first });
+
+        complete.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task A_browser_with_its_own_nonce_cannot_complete_someone_elses_link()
+    {
+        var emailA = NewEmail();
+        var requesterA = factory.CreateHttpsClient();
+        await StartAsync(requesterA, emailA);
+        var tokenA = factory.Emails.LatestTokenFor(emailA);
+
+        var requesterB = factory.CreateHttpsClient();
+        await StartAsync(requesterB, NewEmail());
+
+        var completeByB = await requesterB.PostAsJsonAsync("/api/identity/email/complete", new { token = tokenA });
+
+        await completeByB.ShouldBeProblemAsync(HttpStatusCode.Forbidden, "identity.magic_link_other_browser");
+        (await requesterA.PostAsJsonAsync("/api/identity/email/complete", new { token = tokenA })).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task Start_sets_a_path_scoped_http_only_nonce_cookie()
+    {
+        var start = await StartAsync(factory.CreateHttpsClient(), NewEmail());
+
+        var cookie = start.Headers.GetValues("Set-Cookie").Single(value => value.StartsWith("cn_email_nonce=", StringComparison.Ordinal));
+        cookie.ShouldContain("path=/api/identity/email");
+        cookie.ShouldContain("httponly");
+        cookie.ShouldContain("secure");
+        cookie.ShouldContain("samesite=lax");
+    }
+
     private static Task<HttpResponseMessage> StartAsync(HttpClient client, string email, string mode = "signin") =>
         client.PostAsJsonAsync("/api/identity/email/start", new { email, callbackUrl = EmailCallbackUrl, language = "en", timeZone = "UTC", mode });
 }

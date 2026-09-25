@@ -34,7 +34,18 @@ tests/
 - `CareNest.AppHost` не содержит бизнес-логики - это программа для локального запуска и модель деплоя (см. раздел 11).
 - `CareNest.MigrationService` - отдельный процесс, который применяет миграции баз данных; API-хост миграции не запускает (раздел 6).
 
-Фронтенд (`web/`) появится в следующем под-проекте (план 2) и в этом репозитории пока не создан - см. раздел 17.
+Фронтенд живёт в `web/` (раздел 17):
+
+```
+web/
+├─ apps/client/     приложение родителя: PWA, mobile-first
+├─ apps/studio/     кабинет консультанта и админка, laptop-first
+└─ packages/
+   ├─ api-client/   клиент API, сгенерированный из OpenAPI (orval)
+   ├─ i18n/         словари RU/EN и форматирование дат
+   └─ ui/           тема, компоненты, вход, профиль
+tests/e2e/          сценарии Playwright (они же живая демонстрация)
+```
 
 ## 3. .NET 10 - почему именно 10
 
@@ -137,15 +148,19 @@ dotnet ef migrations add <Name> --project src/Modules/CareNest.Identity --output
 - Docker Desktop (или аналог) запущен - без него Aspire не поднимет PostgreSQL и Mailpit (раздел 13).
 - Установлен .NET SDK версии, закреплённой в `global.json` (сейчас 10.0.204).
 - Локальный сертификат разработки одобрен: `dotnet dev-certs https --trust`.
+- Node.js 22.18+ и pnpm 10.34.5 (`npm install -g pnpm@10.34.5`) - для веб-приложений.
 
 Дальше:
-1. Один раз пропишите свой email как администратора - без этого `/api/identity/admin/consultants` будет недоступен:
-   `dotnet user-secrets --project src/CareNest.Api set "Identity:AdminEmails:0" "<ваш email>"`
+1. Администратор для демонстрации уже есть: `admin@carenest.local` (письмо со ссылкой приходит в Mailpit). Свой email можно добавить так: `dotnet user-secrets --project src/CareNest.Api set "Identity:AdminEmails:0" "<ваш email>"`.
 2. Запустите весь стек: `dotnet run --project src/CareNest.AppHost`.
 3. В консоли появится ссылка на Aspire-дашборд с одноразовым токеном входа - откройте её в браузере.
 4. В дашборде найдите ресурс `api` и откройте его адрес - это и есть `{адрес api}` выше; `{адрес api}/scalar` откроет Scalar, а `{адрес api}/openapi/v1.json` - сырой OpenAPI-документ.
 5. Там же найдите ресурс `email` (Mailpit) и откройте его веб-интерфейс - туда приходят magic-link письма вместо реального почтового ящика (раздел 12).
 6. Для готового пошагового сценария вместо ручного набора запросов используйте `src/CareNest.Api/CareNest.Api.http` (Visual Studio, Rider или расширение REST Client в VS Code): вход администратора, создание консультанта, приглашение и вход родителя, обновление и удаление профиля.
+7. Родительское приложение - http://localhost:5173, кабинет консультанта и админка - http://localhost:5174. Кнопка "Войти через тестовый вход" входит без почты (аккаунт выбирается cookie `cn_fake_subject`, по умолчанию `fake-user`).
+8. Готовый сценарий показа в браузере: при запущенном AppHost выполните в `tests/e2e/` команду `pnpm walkthrough` - Playwright откроет видимый браузер и медленно пройдёт вход, приглашение и принятие (раздел 14).
+
+Учтите: на `localhost` cookie не различают порты, поэтому в одном браузере вход в `studio` означает вход и в `client`. Для показа "консультант и родитель одновременно" используйте разные браузеры или окно инкогнито.
 
 OAuth-провайдеры (Google, Yandex ID, VK ID) и Telegram по умолчанию не настроены - без собственных ключей в user-secrets соответствующий способ входа просто не появляется в ответе `/api/identity/providers`. Чтобы включить их локально:
 
@@ -158,6 +173,8 @@ dotnet user-secrets --project src/CareNest.Api set "Identity:TelegramBotName" "<
 
 где `<Name>` - `Google`, `Yandex` или `VkId` (см. `src/Modules/CareNest.Identity/External/ExternalProviders.cs`).
 
+Redirect URI (callback), который нужно зарегистрировать в консоли провайдера: `/api/identity/signin-<provider>` в нижнем регистре (`signin-google`, `signin-yandex`, `signin-vkid`). Локально фронтенд ходит к API через прокси Vite, поэтому с точки зрения браузера и провайдера хост - это хост самого приложения, а не API: чтобы настоящие Google/Yandex/VK ID реально сработали локально, в консоли провайдера нужно зарегистрировать `http://localhost:5173/api/identity/signin-<provider>` (родительское приложение) и `http://localhost:5174/api/identity/signin-<provider>` (кабинет консультанта). В продакшене регистрируется один адрес - origin самого API (`https://api.<domain>/api/identity/signin-<provider>`, раздел "Notes for plan 3" в плане).
+
 ## 11. .NET Aspire
 
 **.NET Aspire** - набор инструментов Microsoft для локальной разработки распределённых приложений: он поднимает связанные сервисы (базу, очереди, другие процессы) одной командой, настраивает между ними service discovery, прокидывает переменные окружения и даёт единый дашборд с логами и трассировками.
@@ -165,22 +182,48 @@ dotnet user-secrets --project src/CareNest.Api set "Identity:TelegramBotName" "<
 Наш `CareNest.AppHost` (`src/CareNest.AppHost/AppHost.cs`) описывает окружение так:
 
 ```csharp
+var builder = DistributedApplication.CreateBuilder(args);
+
 var postgres = builder.AddPostgres("postgres").WithDataVolume();
 var database = postgres.AddDatabase("carenest");
-var email = builder.AddMailPit("email");
+// Fixed ports so Playwright can read the inbox at a known address.
+var email = builder.AddMailPit("email", httpPort: 8025, smtpPort: 1025);
 
 var migrations = builder.AddProject<Projects.CareNest_MigrationService>("migrations")
     .WithReference(database)
     .WaitFor(database);
 
-builder.AddProject<Projects.CareNest_Api>("api")
+var api = builder.AddProject<Projects.CareNest_Api>("api")
     .WithReference(database)
     .WithReference(email)
     .WaitFor(database)
     .WaitForCompletion(migrations);
+
+if (builder.ExecutionContext.IsRunMode)
+{
+    // Local demo and e2e only: a one-click test sign-in and a known admin; index 99 leaves user-secrets admins at 0 untouched.
+    api.WithEnvironment("Identity__Providers__Fake__Enabled", "true")
+        .WithEnvironment("Identity__AdminEmails__99", "admin@carenest.local");
+}
+
+// Ports match Frontend:Origins in the API's appsettings.Development.json.
+var client = builder.AddViteApp("client", "../../web/apps/client")
+    .WithPnpm()
+    .WithEndpoint("http", endpoint => endpoint.Port = 5173)
+    .WithEnvironment("API_URL", api.GetEndpoint("http"))
+    .WaitFor(api);
+
+// The client's installer already installed the whole pnpm workspace.
+builder.AddViteApp("studio", "../../web/apps/studio")
+    .WithPnpm(install: false)
+    .WithEndpoint("http", endpoint => endpoint.Port = 5174)
+    .WithEnvironment("API_URL", api.GetEndpoint("http"))
+    .WaitFor(client);
+
+builder.Build().Run();
 ```
 
-То есть при запуске поднимаются: контейнер PostgreSQL, контейнер Mailpit, процесс `CareNest.MigrationService` (ждёт готовности базы), и только после успешного завершения миграций - `CareNest.Api` (тоже ждёт базу и Mailpit).
+То есть при запуске поднимаются: контейнеры PostgreSQL и Mailpit (у Mailpit фиксированные порты: интерфейс и API на http://localhost:8025), процесс `CareNest.MigrationService`, затем `CareNest.Api`, затем оба веб-приложения: `client` на http://localhost:5173 и `studio` на http://localhost:5174 (пакет `Aspire.Hosting.JavaScript`: он сам выполняет `pnpm install` и запускает `vite`). Только при локальном запуске (не при деплое) AppHost включает тестовый способ входа "тестовый вход" и делает `admin@carenest.local` администратором.
 
 Запуск:
 
@@ -213,6 +256,7 @@ Docker - платформа для запуска приложений в изо
 - **Testcontainers** (`Testcontainers.PostgreSql`) - для `CareNest.Api.IntegrationTests`: вместо мока базы данных или SQLite поднимается настоящий PostgreSQL в Docker-контейнере на время теста, так тесты проверяют поведение на той же СУБД, что и в проде (включая NodaTime-типы, `jsonb` и специфичные для PostgreSQL детали).
 - **NetArchTest** (`NetArchTest.Rules`) - библиотека для тестов, которые проверяют не поведение кода, а его структуру: например, "ни один класс из модуля Identity, кроме публичного API, не должен быть виден снаружи" (`CareNest.ArchitectureTests`).
 - **FakeClock** (`NodaTime.Testing`) - подменяет `IClock` в тестах, чтобы управлять "текущим временем" напрямую (раздел 7).
+- **Playwright** (`tests/e2e/`) - сквозные тесты в настоящем браузере против всего стека, поднятого Aspire: вход по ссылке из письма (письмо читается из Mailpit через его HTTP API), профиль и мгновенная смена языка, тема, консультант приглашает родителя из другого часового пояса и оба видят местное время друг друга, повторное приглашение, второй способ входа через тестовый провайдер. Родительские страницы открываются в размере телефона. `pnpm test` - без окна (так же в CI), `pnpm walkthrough` - в видимом браузере с паузами, как живая демонстрация. Если AppHost не запущен, Playwright запускает его сам.
 
 Команды (из `CLAUDE.md`):
 
@@ -233,6 +277,10 @@ GitHub Actions workflow `.github/workflows/backend.yml` запускается �
 
 `main` защищён: изменения попадают туда только через pull request с зелёным CI.
 
+Ещё два workflow:
+- `.github/workflows/frontend.yml` - в `web/`: `pnpm install --frozen-lockfile`, линтер, проверка типов, тесты Vitest (включая проверку одинаковых ключей RU/EN и перевода каждого кода ошибки), сборка обоих приложений, проверка, что сборка не изменила закоммиченные `routeTree.gen.ts` (их генерирует плагин TanStack Router при сборке - расхождение означает, что дерево маршрутов забыли перегенерировать и закоммитить), и проверка, что сгенерированный клиент API совпадает с `openapi.json`. Вместе с тестом `OpenApiContractTests` в backend-workflow это даёт цепочку "код API -> openapi.json -> клиент".
+- `.github/workflows/e2e.yml` - ставит .NET, Node, pnpm и Chromium, доверяет dev-сертификату и запускает сценарии Playwright; Playwright сам поднимает весь стек через Aspire AppHost (Docker на раннерах GitHub есть). При падении отчёт Playwright прикладывается к запуску.
+
 ## 16. Azure (план 3, ещё не настроен и не оплачен)
 
 Важно: то, что описано ниже, - это план, зафиксированный в спецификации, а не работающая инфраструктура. Ничего из этого раздела в репозитории пока не развёрнуто и не оплачивается.
@@ -247,17 +295,69 @@ GitHub Actions workflow `.github/workflows/backend.yml` запускается �
 
 По спецификации: регион по умолчанию - EU, а вопрос соответствия 152-ФЗ (закон о персональных данных, действующий в России) для этого региона остаётся открытым. Также нужен собственный купленный домен - потому что cookie-сессии (раздел 8) требуют, чтобы `app.`, `studio.` и `api.` были поддоменами одного домена, а стандартные азурные адреса (`*.azurestaticapps.net`, `*.azurecontainerapps.io`) на одном домене не окажутся.
 
-## 17. Фронтенд (план 2, кратко)
+## 17. Фронтенд
 
-Фронтенд ещё не реализован в этом под-проекте - каталог `web/` появится в плане 2. По спецификации там будет:
-- **Vite** - быстрый инструмент сборки фронтенда (dev-сервер и бандлер);
-- **React** - библиотека для построения UI;
-- **TypeScript** - типизированный JavaScript;
-- **pnpm workspace** - монорепозиторий из нескольких пакетов (`apps/client`, `apps/studio`, общие `packages/`), управляемый одним пакетным менеджером (pnpm);
-- **PWA** (Progressive Web App, через `vite-plugin-pwa`) - родительское приложение `client` можно будет установить на телефон как обычное приложение, без публикации в App Store/Google Play;
-- **Telegram Mini App** - тот же `client` также будет открываться прямо внутри Telegram как встроенное веб-приложение.
+Два приложения и три общих пакета в одном pnpm workspace (`web/`). Команды запускаются из `web/`: `pnpm install`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
 
-Подробности - в `docs/superpowers/specs/foundation-design.md`, раздел 6.
+### 17.1 pnpm workspace и TypeScript
+
+**pnpm** - пакетный менеджер для Node.js. Workspace - это несколько пакетов в одном репозитории с общим `pnpm-lock.yaml`: приложения подключают общие пакеты как `"@carenest/ui": "workspace:*"`, без публикации в npm. Версия pnpm закреплена в `web/package.json` (`packageManager`), версии всех зависимостей - точные.
+
+**TypeScript** - JavaScript с типами; общие настройки компилятора в `web/tsconfig.base.json` (`strict`). TypeScript держим на 6.0: линтер typescript-eslint пока не поддерживает TypeScript 7.
+
+Официальная документация: https://pnpm.io/workspaces, https://www.typescriptlang.org/docs/
+YouTube (EN): `pnpm workspaces monorepo tutorial`
+
+### 17.2 orval: клиент API из OpenAPI
+
+**orval** читает OpenAPI-документ и генерирует TypeScript-типы и хуки TanStack Query (`useGetMe`, `useStartEmailSignIn`...), так что фронтенд не пишет HTTP-запросы руками. Цепочка контракта:
+1. интеграционный тест `OpenApiContractTests` сравнивает документ, который отдаёт API, с закоммиченным `web/packages/api-client/openapi.json` (после намеренного изменения API: `CARENEST_UPDATE_OPENAPI=1 dotnet test tests/CareNest.Api.IntegrationTests`);
+2. `pnpm generate:api` генерирует `web/packages/api-client/src/generated/` из этого файла; результат коммитится, CI проверяет, что он не устарел.
+
+Имена хуков берутся из `.WithName(...)` у эндпоинтов, поэтому у каждого эндпоинта должно быть имя. Ошибки приходят как `ApiProblem` с кодом (`identity.invite_expired`), который UI переводит.
+
+Официальная документация: https://orval.dev/
+YouTube (EN): `orval openapi react query`
+
+### 17.3 ESLint и Vitest
+
+**ESLint** проверяет код на ошибки и опасные паттерны; конфигурация одна на весь workspace (`web/eslint.config.js`), включая правила хуков React. **Vitest** - тестовый раннер, совместимый с Vite; тесты лежат рядом с кодом (`*.test.ts(x)`).
+
+Официальная документация: https://eslint.org/docs/latest/, https://vitest.dev/guide/
+YouTube (EN): `Vitest tutorial`
+
+### 17.4 i18next: RU и EN
+
+**i18next** (с **react-i18next**) хранит тексты интерфейса в словарях `web/packages/i18n/src/locales/{ru,en}/<раздел>.json`. В коде нет ни одной строки интерфейса - только ключи вида `t('auth:email.submit')`. Ключи плоские; у русского три формы множественного числа (`_one`, `_few`, `_many`), они выбираются через `Intl.PluralRules`. Тест проверяет, что у RU и EN одинаковые ключи и что каждый код ошибки API (`ErrorCode` из OpenAPI) переведён.
+
+Язык до входа берётся из браузера, после входа - из профиля; смена языка в профиле применяется сразу. Даты и время форматируются через `Intl` в часовом поясе того, кто смотрит; "местное время" другого человека (консультанта или клиента) - в его часовом поясе с подписью пояса.
+
+Официальная документация: https://www.i18next.com/, https://react.i18next.com/
+YouTube (RU): `i18next react локализация`
+
+### 17.5 Tailwind CSS, Radix, тема
+
+**Tailwind CSS** (v4) - CSS через классы прямо в разметке (`rounded-full px-5`). Цвета заданы токенами в `web/packages/ui/src/styles.css`: палитра по умолчанию взята с сайта консультанта-пилота (коралловый акцент, персиковый фон), но это только значения переменных, так что другой консультант может получить свою тему. **Radix** даёт доступные примитивы (метка поля, `Slot` для кнопки-ссылки), **lucide-react** - иконки. Компоненты написаны в стиле **shadcn/ui**: это не библиотека, а исходники в нашем пакете `ui`, которые мы правим сами.
+
+Тема: "как в системе" (по умолчанию), светлая или тёмная - переключатель в шапке обоих приложений. Выбор хранится на устройстве (`localStorage`, ключ `cn.theme`) и применяется скриптом в `index.html` ещё до отрисовки, чтобы ночью не мигал белый экран.
+
+### 17.6 MSW: фейковый API в компонентных тестах
+
+**MSW** (Mock Service Worker) перехватывает `fetch` в тестах и отвечает как API: тест говорит "на `POST /api/identity/email/start` ответь 202" и проверяет, что компонент отправил и показал. Общий набор для тестов - `@carenest/ui/testing`.
+
+Официальная документация: https://tailwindcss.com/docs, https://www.radix-ui.com/primitives, https://ui.shadcn.com/, https://mswjs.io/docs/
+YouTube (EN): `Tailwind CSS v4 crash course`, `shadcn ui tutorial`, `MSW mock service worker tutorial`
+
+### 17.7 Vite, React, TanStack Router и Query
+
+**Vite** - dev-сервер и сборщик: мгновенно перезагружает изменения, собирает продакшен-бандл. В разработке Vite проксирует `/api` на API, поэтому для браузера это один адрес и сессионная cookie остаётся "своей"; в проде адрес API задаётся переменной `VITE_API_BASE_URL`. **React** - библиотека интерфейса. **TanStack Router** - типизированная маршрутизация: страница = файл в `src/routes/` (`invite.$token.tsx` - это `/invite/:token`), защищённые страницы лежат под `_authed` и без сессии уводят на `/sign-in?next=...`. **TanStack Query** кэширует ответы API; хуки для него генерирует orval (раздел 17.2).
+
+### 17.8 PWA
+
+Приложение родителя - **PWA** (`vite-plugin-pwa`): у него есть манифест и иконки, его можно установить на телефон как приложение. Service worker кэширует только оболочку приложения, запросы к API всегда идут в сеть. Иконки генерируются при сборке из `public/icon.svg`.
+
+Официальная документация: https://vite.dev/guide/, https://react.dev/, https://tanstack.com/router/latest/docs, https://tanstack.com/query/latest/docs, https://vite-pwa-org.netlify.app/guide/
+YouTube (EN): `TanStack Router tutorial`, `TanStack Query v5 tutorial`, `vite-plugin-pwa tutorial`
 
 ## 18. Что почитать и посмотреть
 
@@ -288,6 +388,10 @@ GitHub Actions workflow `.github/workflows/backend.yml` запускается �
 - Telegram Mini Apps: https://core.telegram.org/bots/webapps
 - YouTube (RU): `ASP.NET Core Identity без пароля`
 - YouTube (EN): `ASP.NET Core Identity passwordless magic link`
+
+**Playwright**
+- https://playwright.dev/docs/intro
+- YouTube (EN): `Playwright end to end testing tutorial`
 
 **.NET Aspire**
 - https://learn.microsoft.com/en-us/dotnet/aspire/
@@ -322,11 +426,15 @@ GitHub Actions workflow `.github/workflows/backend.yml` запускается �
 - YouTube (RU): `Azure Container Apps обзор`
 - YouTube (EN): `Azure Developer CLI azd tutorial`
 
-**Фронтенд (план 2)**
-- https://vite.dev/guide/
-- https://react.dev/
-- https://www.typescriptlang.org/docs/
+**Фронтенд**
 - https://pnpm.io/workspaces
+- https://vite.dev/guide/ и https://react.dev/
+- https://www.typescriptlang.org/docs/
+- https://tanstack.com/router/latest/docs и https://tanstack.com/query/latest/docs
+- https://orval.dev/
+- https://www.i18next.com/
+- https://tailwindcss.com/docs и https://ui.shadcn.com/
 - https://vite-pwa-org.netlify.app/guide/
+- https://vitest.dev/guide/ и https://mswjs.io/docs/
 - YouTube (RU): `Vite React TypeScript обзор`
-- YouTube (EN): `Vite React TypeScript tutorial`
+- YouTube (EN): `TanStack Router tutorial`
