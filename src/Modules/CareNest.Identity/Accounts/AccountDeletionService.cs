@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CareNest.Identity.Accounts;
 
-// Foreign keys cascade logins, roles, invitations, client links and link tokens; email-keyed tokens have no FK and are removed here.
+// Foreign keys cascade logins, roles, client links and the consultant's own invitations (accepted invitations keep their row with AcceptedByUserId set to null); email-keyed tokens have no FK and are removed here.
 internal sealed class AccountDeletionService(UserManager<User> users, IdentityModuleDbContext db)
 {
     public async Task DeleteAsync(User user, CancellationToken cancellationToken)

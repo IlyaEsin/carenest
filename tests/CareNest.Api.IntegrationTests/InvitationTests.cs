@@ -29,6 +29,16 @@ public class InvitationTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Consultant_cannot_create_consultants()
+    {
+        var consultant = await factory.CreateConsultantClientAsync();
+
+        var response = await consultant.PostAsJsonAsync("/api/identity/admin/consultants", new { email = NewEmail(), displayName = "X" });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task Parent_cannot_use_consultant_endpoints()
     {
         var parent = await factory.SignedInClientAsync(NewEmail());
