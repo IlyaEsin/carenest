@@ -24,8 +24,8 @@ internal static class EmailSignInEndpoints
 
     public static void MapEmailSignIn(this RouteGroupBuilder group)
     {
-        group.MapPost("/email/start", StartAsync).WithRequestValidation<EmailStartRequest>();
-        group.MapPost("/email/complete", CompleteAsync).WithRequestValidation<EmailCompleteRequest>();
+        group.MapPost("/email/start", StartAsync).WithName("StartEmailSignIn").WithRequestValidation<EmailStartRequest>();
+        group.MapPost("/email/complete", CompleteAsync).WithName("CompleteEmailSignIn").WithRequestValidation<EmailCompleteRequest>();
     }
 
     private static async Task<Results<Accepted, ProblemHttpResult>> StartAsync(

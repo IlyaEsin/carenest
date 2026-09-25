@@ -26,10 +26,10 @@ internal static class ExternalSignInEndpoints
 
     public static void MapExternalSignIn(this RouteGroupBuilder group)
     {
-        group.MapGet("/providers", GetProvidersAsync);
-        group.MapGet("/external/{provider}/start", StartAsync);
-        group.MapGet("/external/callback", CallbackAsync);
-        group.MapPost("/telegram/complete", TelegramAsync).WithRequestValidation<TelegramCompleteRequest>();
+        group.MapGet("/providers", GetProvidersAsync).WithName("GetProviders");
+        group.MapGet("/external/{provider}/start", StartAsync).WithName("StartExternalSignIn");
+        group.MapGet("/external/callback", CallbackAsync).WithName("CompleteExternalSignIn");
+        group.MapPost("/telegram/complete", TelegramAsync).WithName("CompleteTelegramSignIn").WithRequestValidation<TelegramCompleteRequest>();
     }
 
     private static async Task<Ok<ProvidersResponse>> GetProvidersAsync(IAuthenticationSchemeProvider schemes, IOptions<IdentityModuleOptions> options)

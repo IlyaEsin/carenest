@@ -1,3 +1,4 @@
+using System.Reflection;
 using CareNest.SharedKernel.Errors;
 using Microsoft.AspNetCore.Http;
 
@@ -19,4 +20,14 @@ internal static class IdentityErrors
     public static readonly ApiError InviteUsed = new("identity.invite_used", StatusCodes.Status409Conflict);
     public static readonly ApiError InviteExpired = new("identity.invite_expired", StatusCodes.Status410Gone);
     public static readonly ApiError InviteOwn = new("identity.invite_own", StatusCodes.Status400BadRequest);
+
+    // Lazy, so this cannot read as null at type initialisation regardless of where a new error field is declared.
+    private static readonly Lazy<IReadOnlyList<string>> LazyCodes = new(() => typeof(IdentityErrors)
+        .GetFields(BindingFlags.Public | BindingFlags.Static)
+        .Where(field => field.FieldType == typeof(ApiError))
+        .Select(field => ((ApiError)field.GetValue(null)!).Code)
+        .ToList());
+
+    // Read by reflection so a new error cannot be left out of the OpenAPI ErrorCode enum.
+    public static IReadOnlyList<string> Codes => LazyCodes.Value;
 }

@@ -9,7 +9,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 builder.Services.AddProblemDetails();
-builder.Services.AddOpenApi(options => options.AddSchemaTransformer(NodaTimeSchemaTransformer.TransformAsync));
+builder.Services.AddOpenApi(options => options
+    .AddSchemaTransformer(NodaTimeSchemaTransformer.TransformAsync)
+    .AddDocumentTransformer(ErrorCodeSchemaTransformer.TransformAsync));
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb));
 builder.Services.AddSingleton<IClock>(SystemClock.Instance);
 builder.Services.AddCors();

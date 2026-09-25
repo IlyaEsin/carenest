@@ -25,11 +25,12 @@ internal static class InvitationEndpoints
     public static void MapInvitations(this RouteGroupBuilder group)
     {
         var consultant = group.MapGroup("").RequireAuthorization(IdentityPolicies.Consultant);
-        consultant.MapPost("/invitations", CreateAsync);
-        consultant.MapGet("/invitations", ListAsync);
-        consultant.MapGet("/clients", ListClientsAsync);
+        consultant.MapPost("/invitations", CreateAsync).WithName("CreateInvitation");
+        consultant.MapGet("/invitations", ListAsync).WithName("ListInvitations");
+        consultant.MapGet("/clients", ListClientsAsync).WithName("ListClients");
 
         group.MapPost("/invitations/accept", AcceptAsync)
+            .WithName("AcceptInvitation")
             .RequireAuthorization()
             .WithRequestValidation<AcceptInvitationRequest>();
     }

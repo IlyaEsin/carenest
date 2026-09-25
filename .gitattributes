@@ -1,0 +1,3 @@
+# Generated web files (orval output, the OpenAPI snapshot, the route tree) are LF on every OS, so drift checks compare like with like.
+web/** text=auto eol=lf
+tests/e2e/** text=auto eol=lf

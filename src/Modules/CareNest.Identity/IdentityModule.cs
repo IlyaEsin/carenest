@@ -25,6 +25,8 @@ public static class IdentityModule
 {
     public const string ConnectionStringName = "carenest";
 
+    public static IReadOnlyList<string> ErrorCodes => IdentityErrors.Codes;
+
     public static IHostApplicationBuilder AddIdentityModule(this IHostApplicationBuilder builder)
     {
         var services = builder.Services;
