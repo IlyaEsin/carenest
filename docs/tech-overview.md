@@ -148,15 +148,19 @@ dotnet ef migrations add <Name> --project src/Modules/CareNest.Identity --output
 - Docker Desktop (или аналог) запущен - без него Aspire не поднимет PostgreSQL и Mailpit (раздел 13).
 - Установлен .NET SDK версии, закреплённой в `global.json` (сейчас 10.0.204).
 - Локальный сертификат разработки одобрен: `dotnet dev-certs https --trust`.
+- Node.js 22.18+ и pnpm 10.34.5 (`npm install -g pnpm@10.34.5`) - для веб-приложений.
 
 Дальше:
-1. Один раз пропишите свой email как администратора - без этого `/api/identity/admin/consultants` будет недоступен:
-   `dotnet user-secrets --project src/CareNest.Api set "Identity:AdminEmails:0" "<ваш email>"`
+1. Администратор для демонстрации уже есть: `admin@carenest.local` (письмо со ссылкой приходит в Mailpit). Свой email можно добавить так: `dotnet user-secrets --project src/CareNest.Api set "Identity:AdminEmails:0" "<ваш email>"`.
 2. Запустите весь стек: `dotnet run --project src/CareNest.AppHost`.
 3. В консоли появится ссылка на Aspire-дашборд с одноразовым токеном входа - откройте её в браузере.
 4. В дашборде найдите ресурс `api` и откройте его адрес - это и есть `{адрес api}` выше; `{адрес api}/scalar` откроет Scalar, а `{адрес api}/openapi/v1.json` - сырой OpenAPI-документ.
 5. Там же найдите ресурс `email` (Mailpit) и откройте его веб-интерфейс - туда приходят magic-link письма вместо реального почтового ящика (раздел 12).
 6. Для готового пошагового сценария вместо ручного набора запросов используйте `src/CareNest.Api/CareNest.Api.http` (Visual Studio, Rider или расширение REST Client в VS Code): вход администратора, создание консультанта, приглашение и вход родителя, обновление и удаление профиля.
+7. Родительское приложение - http://localhost:5173, кабинет консультанта и админка - http://localhost:5174. Кнопка "Войти через тестовый вход" входит без почты (аккаунт выбирается cookie `cn_fake_subject`, по умолчанию `fake-user`).
+8. Готовый сценарий показа в браузере: при запущенном AppHost выполните в `tests/e2e/` команду `pnpm walkthrough` - Playwright откроет видимый браузер и медленно пройдёт вход, приглашение и принятие (раздел 14).
+
+Учтите: на `localhost` cookie не различают порты, поэтому в одном браузере вход в `studio` означает вход и в `client`. Для показа "консультант и родитель одновременно" используйте разные браузеры или окно инкогнито.
 
 OAuth-провайдеры (Google, Yandex ID, VK ID) и Telegram по умолчанию не настроены - без собственных ключей в user-secrets соответствующий способ входа просто не появляется в ответе `/api/identity/providers`. Чтобы включить их локально:
 
@@ -176,22 +180,48 @@ dotnet user-secrets --project src/CareNest.Api set "Identity:TelegramBotName" "<
 Наш `CareNest.AppHost` (`src/CareNest.AppHost/AppHost.cs`) описывает окружение так:
 
 ```csharp
+var builder = DistributedApplication.CreateBuilder(args);
+
 var postgres = builder.AddPostgres("postgres").WithDataVolume();
 var database = postgres.AddDatabase("carenest");
-var email = builder.AddMailPit("email");
+// Fixed ports so Playwright can read the inbox at a known address.
+var email = builder.AddMailPit("email", httpPort: 8025, smtpPort: 1025);
 
 var migrations = builder.AddProject<Projects.CareNest_MigrationService>("migrations")
     .WithReference(database)
     .WaitFor(database);
 
-builder.AddProject<Projects.CareNest_Api>("api")
+var api = builder.AddProject<Projects.CareNest_Api>("api")
     .WithReference(database)
     .WithReference(email)
     .WaitFor(database)
     .WaitForCompletion(migrations);
+
+if (builder.ExecutionContext.IsRunMode)
+{
+    // Local demo and e2e only: a one-click test sign-in and a known admin; index 99 leaves user-secrets admins at 0 untouched.
+    api.WithEnvironment("Identity__Providers__Fake__Enabled", "true")
+        .WithEnvironment("Identity__AdminEmails__99", "admin@carenest.local");
+}
+
+// Ports match Frontend:Origins in the API's appsettings.Development.json.
+var client = builder.AddViteApp("client", "../../web/apps/client")
+    .WithPnpm()
+    .WithEndpoint("http", endpoint => endpoint.Port = 5173)
+    .WithEnvironment("API_URL", api.GetEndpoint("http"))
+    .WaitFor(api);
+
+// The client's installer already installed the whole pnpm workspace.
+builder.AddViteApp("studio", "../../web/apps/studio")
+    .WithPnpm(install: false)
+    .WithEndpoint("http", endpoint => endpoint.Port = 5174)
+    .WithEnvironment("API_URL", api.GetEndpoint("http"))
+    .WaitFor(client);
+
+builder.Build().Run();
 ```
 
-То есть при запуске поднимаются: контейнер PostgreSQL, контейнер Mailpit, процесс `CareNest.MigrationService` (ждёт готовности базы), и только после успешного завершения миграций - `CareNest.Api` (тоже ждёт базу и Mailpit).
+То есть при запуске поднимаются: контейнеры PostgreSQL и Mailpit (у Mailpit фиксированные порты: интерфейс и API на http://localhost:8025), процесс `CareNest.MigrationService`, затем `CareNest.Api`, затем оба веб-приложения: `client` на http://localhost:5173 и `studio` на http://localhost:5174 (пакет `Aspire.Hosting.JavaScript`: он сам выполняет `pnpm install` и запускает `vite`). Только при локальном запуске (не при деплое) AppHost включает тестовый способ входа "тестовый вход" и делает `admin@carenest.local` администратором.
 
 Запуск:
 
