@@ -52,4 +52,10 @@ test('a magic link opened in another browser does not sign in', async ({ browser
   await elsewhere.goto(link);
 
   await expect(elsewhere.getByRole('alert')).toContainText('Open the link in the same browser');
+  // Not signed in there: the failed-sign-in screen offers a way back, not the app.
+  await expect(elsewhere.getByRole('link', { name: 'Back to sign-in' })).toBeVisible();
+
+  // The link stays usable in the browser that requested it.
+  await requester.goto(link);
+  await expect(requester.getByRole('heading', { name: /Hello, other-browser-/ })).toBeVisible();
 });
