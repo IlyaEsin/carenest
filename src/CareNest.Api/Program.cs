@@ -28,7 +28,7 @@ app.UseAuthorization();
 app.MapOpenApi();
 if (app.Environment.IsDevelopment())
 {
-    // A UI to try requests against the real API origin, so the session cookie rides along; not for Testing or production.
+    // Served from the API origin in Development only, so try-it calls carry the session cookie.
     app.MapScalarApiReference();
 }
 

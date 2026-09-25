@@ -127,7 +127,7 @@ dotnet ef migrations add <Name> --project src/Modules/CareNest.Identity --output
 
 Страница подключена только для `Development` (`app.Environment.IsDevelopment()`) - в тестовом окружении и в проде её нет, это инструмент локальной разработки и демонстраций, а не часть публичного API. Обслуживается с того же адреса, что и сам API, а не с отдельного origin, поэтому кнопка "Try it" отправляет запросы с той же cookie-сессией, что уже есть в браузере.
 
-Адрес: `{адрес api}/scalar`, например `https://localhost:7136/scalar` при обычном `dotnet run` (см. `src/CareNest.Api/Properties/launchSettings.json`); под Aspire - адрес API смотрите в дашборде.
+Адрес: `{адрес api}/scalar`. Под Aspire (`dotnet run --project src/CareNest.AppHost`) адрес API смотрите в дашборде. При отдельном запуске API (`dotnet run --project src/CareNest.Api`) без `--launch-profile` используется первый профиль из `launchSettings.json` - `http`, `http://localhost:5042` - а сессионная cookie помечена `Secure` и не отправляется по http, поэтому для авторизованных запросов запускайте `dotnet run --project src/CareNest.Api --launch-profile https`, тогда Scalar будет на `https://localhost:7136/scalar`.
 
 Официальная документация: https://scalar.com/products/api-references/integrations/aspnetcore/integration
 
