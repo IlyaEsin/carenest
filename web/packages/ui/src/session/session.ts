@@ -43,13 +43,21 @@ export async function resetSession(queryClient: QueryClient): Promise<void> {
   queryClient.clear();
 }
 
+// A failed sign-out must not look like a successful one: only a 401 (the cookie was already invalid) clears the
+// session on error; any other failure (offline, 500) keeps the session so the cookie stays valid on a shared device.
 export function useSignOut(onSignedOut: () => void) {
   const queryClient = useQueryClient();
   return useSignOutMutation({
     mutation: {
-      onSettled: async () => {
+      onSuccess: async () => {
         await resetSession(queryClient);
         onSignedOut();
+      },
+      onError: async (error) => {
+        if (error instanceof ApiProblem && error.status === 401) {
+          await resetSession(queryClient);
+          onSignedOut();
+        }
       },
     },
   });

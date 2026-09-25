@@ -1,8 +1,10 @@
+import { ApiProblem } from '@carenest/api-client';
 import { languages } from '@carenest/i18n';
 import { useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../components/button';
 import { Select } from '../components/form';
+import { ErrorAlert } from '../errors/ErrorAlert';
 import { cn } from '../lib';
 import { useMe, useSignOut } from '../session/session';
 import { ThemeSwitcher } from '../theme/ThemeSwitcher';
@@ -62,6 +64,8 @@ export function AppShell({ nav, onSignedOut, children, width = 'narrow' }: AppSh
   const { t, i18n } = useTranslation();
   const me = useMe();
   const signOut = useSignOut(onSignedOut);
+  // A 401 means the session was already gone, so it is not shown as a failure; every other error is.
+  const signOutError = signOut.error instanceof ApiProblem && signOut.error.status === 401 ? undefined : signOut.error;
 
   // After sign-in the profile language wins over the browser language.
   useEffect(() => {
@@ -78,11 +82,14 @@ export function AppShell({ nav, onSignedOut, children, width = 'narrow' }: AppSh
           <nav aria-label={t('common:mainNav')} className="flex flex-wrap items-center gap-1">
             {nav}
           </nav>
-          <div className="flex items-center gap-2">
-            <ThemeSwitcher />
-            <Button variant="ghost" onClick={() => signOut.mutate()} disabled={signOut.isPending}>
-              {t('common:signOut')}
-            </Button>
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2">
+              <ThemeSwitcher />
+              <Button variant="ghost" onClick={() => signOut.mutate()} disabled={signOut.isPending}>
+                {t('common:signOut')}
+              </Button>
+            </div>
+            <ErrorAlert error={signOutError} />
           </div>
         </div>
       </header>
