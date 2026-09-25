@@ -125,6 +125,7 @@ internal static class InvitationEndpoints
             return IdentityErrors.InviteUsed.ToProblem();
         }
 
+        // The caller is the parent, not the owning consultant, so the filter would hide every row; the pair of explicit ids keeps this scoped.
         var alreadyLinked = await db.ClientLinks.IgnoreQueryFilters()
             .AnyAsync(l => l.ConsultantId == invitation.ConsultantId && l.ParentUserId == userId, cancellationToken);
         if (!alreadyLinked)
