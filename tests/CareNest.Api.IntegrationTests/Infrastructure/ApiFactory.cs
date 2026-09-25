@@ -1,4 +1,5 @@
 using CareNest.Identity;
+using CareNest.Identity.Email;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -20,10 +21,16 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public const string TelegramBotToken = "123456:TEST-TOKEN";
 
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:17-alpine").Build();
+    private HttpClient? _adminClient;
 
     public FakeClock Clock { get; } = new(Instant.FromUtc(2026, 1, 5, 9, 0));
 
+    internal FakeEmailSender Emails { get; } = new();
+
     public string ConnectionString => _postgres.GetConnectionString();
+
+    // One cached admin session: the per-email throttle would block repeated admin sign-ins on the fixed clock.
+    public async Task<HttpClient> GetAdminClientAsync() => _adminClient ??= await this.SignedInClientAsync(AdminEmail);
 
     public async ValueTask InitializeAsync()
     {
@@ -42,7 +49,11 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Identity:TelegramBotName", "carenest_test_bot");
         builder.UseSetting("Identity:Providers:Google:ClientId", "test-google-client");
         builder.UseSetting("Identity:Providers:Google:ClientSecret", "test-google-secret");
-        builder.ConfigureTestServices(services => services.AddSingleton<IClock>(Clock));
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddSingleton<IClock>(Clock);
+            services.AddSingleton<IEmailSender>(Emails);
+        });
     }
 
     // Secure cookies are only sent over https, so every test client uses an https base address.

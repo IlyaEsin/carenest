@@ -1,5 +1,7 @@
 using CareNest.Identity.Accounts;
 using CareNest.Identity.Domain;
+using CareNest.Identity.Email;
+using CareNest.Identity.Endpoints;
 using CareNest.Identity.Persistence;
 using CareNest.Identity.Security;
 using CareNest.SharedKernel.Consultants;
@@ -48,13 +50,20 @@ public static class IdentityModule
 
         services.AddSingleton<ReturnUrlPolicy>();
         services.AddScoped<AccountService>();
+
+        services.AddOptions<EmailOptions>()
+            .Bind(builder.Configuration.GetSection(EmailOptions.Section))
+            .PostConfigure<IConfiguration>((email, configuration) =>
+                email.ApplyConnectionString(configuration.GetConnectionString(EmailOptions.ConnectionStringName)));
+        services.AddSingleton<IEmailSender, SmtpEmailSender>();
         return builder;
     }
 
     public static IEndpointRouteBuilder MapIdentityEndpoints(this IEndpointRouteBuilder app)
     {
-        // Routes are added from Task 6 on.
-        app.MapGroup("/api/identity").WithTags("Identity");
+        var group = app.MapGroup("/api/identity").WithTags("Identity");
+        group.MapEmailSignIn();
+        group.MapProfile();
         return app;
     }
 
