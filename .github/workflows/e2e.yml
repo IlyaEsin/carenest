@@ -31,9 +31,12 @@ jobs:
             web/pnpm-lock.yaml
             tests/e2e/pnpm-lock.yaml
 
-      # The Aspire CLI starts the AppHost with its https launch profile.
+      # The Aspire CLI starts the AppHost with its https launch profile; on Linux, OpenSSL trusts the dev certificate only through SSL_CERT_DIR.
       - name: Trust the ASP.NET Core development certificate
-        run: dotnet dev-certs https --trust
+        run: |
+          export SSL_CERT_DIR="$HOME/.aspnet/dev-certs/trust:/usr/lib/ssl/certs"
+          echo "SSL_CERT_DIR=$SSL_CERT_DIR" >> "$GITHUB_ENV"
+          dotnet dev-certs https --trust
 
       - name: Install web dependencies
         working-directory: web
