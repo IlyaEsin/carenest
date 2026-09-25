@@ -12,7 +12,7 @@ builder.Services.AddOpenApi(options => options.AddSchemaTransformer(NodaTimeSche
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb));
 builder.Services.AddSingleton<IClock>(SystemClock.Instance);
 builder.Services.AddCors();
-builder.AddIdentityPersistence();
+builder.AddIdentityModule();
 
 var app = builder.Build();
 
@@ -21,9 +21,12 @@ var frontend = app.Configuration.GetSection(FrontendOptions.Section).Get<Fronten
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseCors(policy => policy.WithOrigins(frontend.Origins).AllowCredentials().AllowAnyHeader().AllowAnyMethod());
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapOpenApi();
 app.MapDefaultEndpoints();
+app.MapIdentityEndpoints();
 
 app.Run();
 
