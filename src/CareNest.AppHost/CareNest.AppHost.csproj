@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CareNest.Api\CareNest.Api.csproj" />
+    <ProjectReference Include="..\CareNest.MigrationService\CareNest.MigrationService.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,5 @@
 using CareNest.Api;
+using CareNest.Identity;
 using CareNest.SharedKernel.Web;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
@@ -11,6 +12,7 @@ builder.Services.AddOpenApi(options => options.AddSchemaTransformer(NodaTimeSche
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb));
 builder.Services.AddSingleton<IClock>(SystemClock.Instance);
 builder.Services.AddCors();
+builder.AddIdentityPersistence();
 
 var app = builder.Build();
 

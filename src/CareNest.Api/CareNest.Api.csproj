@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\CareNest.ServiceDefaults\CareNest.ServiceDefaults.csproj" />
     <ProjectReference Include="..\CareNest.SharedKernel\CareNest.SharedKernel.csproj" />
+    <ProjectReference Include="..\Modules\CareNest.Identity\CareNest.Identity.csproj" />
   </ItemGroup>
 
 </Project>

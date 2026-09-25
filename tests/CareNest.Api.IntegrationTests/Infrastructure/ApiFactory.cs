@@ -1,3 +1,4 @@
+using CareNest.Identity;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -27,6 +28,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public async ValueTask InitializeAsync()
     {
         await _postgres.StartAsync();
+        await Services.MigrateIdentityDatabaseAsync(CancellationToken.None);
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
