@@ -39,3 +39,4 @@ Platform that automates an independent consultant's work with parents; the first
 - Tracking: GitHub Issues. Branches `feature/cn-<issue>-<slug>`; spec and plan files `cn-<issue>-<slug>.md` (no issue: `<slug>.md`).
 - Writing: plain hyphen `-`, never em or en dashes. Code comments: one dry sentence, why not what.
 - Secrets never enter the repo. Local: `dotnet user-secrets`. Production: Key Vault.
+- Technology overview for humans: `docs/tech-overview.md` (Russian). When a change adopts a new technology, add a section there in the same change.

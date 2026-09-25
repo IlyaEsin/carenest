@@ -1,0 +1,295 @@
+# Обзор технологий CareNest
+
+## 1. Введение
+
+Этот документ - для владельца проекта: он объясняет, из чего состоит бэкенд CareNest и почему выбраны именно эти технологии. Целевой читатель - .NET-разработчик, который уверенно работает с .NET и PostgreSQL, но не сталкивался с Aspire, Mailpit, Testcontainers и азурными сервисами. Документ не заменяет официальную документацию - он даёт контекст: что это, зачем нам, где лежит в репозитории, как выглядит в повседневной работе.
+
+Правило: документ пополняется вместе с проектом. Когда в кодовую базу приходит новая технология, в том же изменении в этот файл добавляется новый раздел (см. `CLAUDE.md`, раздел "Conventions").
+
+## 2. Карта проекта
+
+Бэкенд - модульный монолит: один процесс, одна база данных, но код разделён на независимые модули.
+
+```
+src/
+├─ CareNest.AppHost/          оркестрация локального запуска (.NET Aspire)
+├─ CareNest.ServiceDefaults/  общие настройки: OpenTelemetry, health checks, resilience
+├─ CareNest.Api/              хост: запуск, DI, регистрация модулей, OpenAPI - без бизнес-логики
+├─ CareNest.SharedKernel/     общие примитивы: id, ошибки, часы (IClock), язык, консультантская изоляция
+├─ CareNest.MigrationService/ применяет миграции модулей (локально и при деплое)
+└─ Modules/
+   └─ CareNest.Identity/      единственный модуль в этом под-проекте: пользователи, вход, роли, профили, приглашения
+
+tests/
+├─ CareNest.SharedKernel.Tests/       модульные тесты общих примитивов
+├─ CareNest.Identity.Tests/           модульные тесты модуля Identity
+├─ CareNest.Api.IntegrationTests/     HTTP-тесты через WebApplicationFactory + настоящий PostgreSQL (Testcontainers)
+└─ CareNest.ArchitectureTests/        тесты, проверяющие границы модулей (NetArchTest)
+```
+
+Как части связаны:
+- `CareNest.Api` - это только хост. Он подключает модули (`AddIdentityModule()`) и открывает их эндпоинты (`MapIdentityEndpoints()`), но сам не содержит бизнес-логики.
+- Каждый модуль в `src/Modules/` - отдельный проект. Публичным для других частей системы является только код в корневом namespace модуля (например, `CareNest.Identity.IdentityModule`); всё остальное - `internal`. Модули не ссылаются друг на друга напрямую - это проверяется архитектурными тестами.
+- `CareNest.SharedKernel` - единственная зависимость, которую могут использовать модули; сам он ни от одного модуля не зависит.
+- `CareNest.AppHost` не содержит бизнес-логики - это программа для локального запуска и модель деплоя (см. раздел 10).
+- `CareNest.MigrationService` - отдельный процесс, который применяет миграции баз данных; API-хост миграции не запускает (раздел 6).
+
+Фронтенд (`web/`) появится в следующем под-проекте (план 2) и в этом репозитории пока не создан - см. раздел 16.
+
+## 3. .NET 10 - почему именно 10
+
+.NET 10 - LTS-версия (Long Term Support), то есть версия с длительной поддержкой Microsoft. Это важно: LTS-версии получают обновления безопасности дольше, чем обычные (STS) релизы, и на них можно спокойно строить продукт на годы вперёд, не переезжая каждый год на новую версию.
+
+Даты, на которые опирается решение (из спецификации проекта): поддержка .NET 8 заканчивается в ноябре 2026 года, а .NET 10 поддерживается до ноября 2028 года. Поскольку проект стартует в 2026 году, брать версию, которая вот-вот перестанет получать патчи безопасности, не было смысла.
+
+Что именно из .NET 10 мы используем:
+- **Minimal API** - облегчённый способ описывать HTTP-эндпоинты без контроллеров (раздел 4).
+- **Встроенная генерация документа OpenAPI** (`Microsoft.AspNetCore.OpenApi`, пакет версии `10.0.12`) - без сторонних библиотек вроде Swashbuckle (раздел 9).
+- **`.slnx`** - новый, более компактный XML-формат файла решения (`CareNest.slnx` вместо `.sln`).
+
+Честно про ограничение, которое мы обнаружили: .NET 10 умеет валидировать Minimal API запросы "из коробки" (`AddValidation()` / атрибут `[ValidatableType]`), но эта встроенная валидация **не увидела typy запросов, объявленные в модулях** (то есть почти все наши запросы) - это было проверено вручную 24 сентября 2026 года при написании плана. Опциональный атрибут `[ValidatableType]` вдобавок помечен как experimental (предупреждение `ASP0029`) и в проверке тоже не сработал. Поэтому мы **не используем** встроенную валидацию, а вместо неё - `DataAnnotations` на типах запроса плюс общий фильтр эндпоинта (`.WithRequestValidation<T>()`, см. `CLAUDE.md`, раздел "Conventions"). Это пример решения, принятого не потому что "так модно", а потому что альтернативу проверили и она не подошла.
+
+## 4. ASP.NET Core Minimal API и модульный монолит
+
+**Minimal API** - способ описывать HTTP-маршруты как обычные методы (`app.MapGet(...)`, `app.MapPost(...)`) без классов-контроллеров. Каждый модуль регистрирует свою группу маршрутов с общим префиксом, например:
+
+```csharp
+var group = app.MapGroup("/api/identity").WithTags("Identity");
+group.MapEmailSignIn();
+group.MapProfile();
+```
+
+(см. `src/Modules/CareNest.Identity/IdentityModule.cs`, метод `MapIdentityEndpoints`).
+
+**Модульный монолит** - архитектурный стиль между "всё в одном большом клубке" и микросервисами: один процесс и одна база данных (что просто эксплуатировать), но код внутри жёстко разделён на модули с явными границами (что не даёт архитектуре расползтись). У нас:
+- нет MediatR - вызовы между слоями внутри модуля - обычные вызовы методов, без дополнительной библиотеки-медиатора;
+- модули не ссылаются друг на друга: если модулю A нужно что-то от модуля B, вызов идёт только через публичный интерфейс в корневом namespace модуля B;
+- границы проверяются автоматически: `CareNest.ArchitectureTests` использует `NetArchTest.Rules`, чтобы тест падал в CI, если кто-то по ошибке добавил ссылку на internal-класс другого модуля (раздел 13).
+
+Такой стиль даёт монолиту дисциплину, при которой в будущем (если понадобится) модуль можно будет вынести в отдельный сервис без переписывания бизнес-логики.
+
+## 5. PostgreSQL
+
+PostgreSQL - open source реляционная СУБД. Мы выбрали её по нескольким причинам:
+- **Open source** - без лицензионных платежей и без риска смены модели лицензирования.
+- **Одна база, схема на модуль**: в этом под-проекте у модуля `Identity` своя PostgreSQL-схема и свой `DbContext` со своими миграциями; когда появятся новые модули, каждый получит свою схему в той же базе.
+- **`jsonb`** - тип для хранения произвольных JSON-данных прямо в таблице с возможностью индексировать и делать запросы внутрь него. Пока не используется, но заложен на будущее - под гибкие шаблоны анкет и правил (сама структура анкет ещё не спроектирована).
+- **NodaTime-плагин Npgsql** (`Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`) - без него PostgreSQL не умел бы напрямую сохранять типы NodaTime (`Instant`, `LocalDateTime` и т.д.), пришлось бы вручную конвертировать в `DateTime` и обратно (раздел 7).
+- **Managed-вариант в Azure**: в проде (план 3) используется Azure Database for PostgreSQL Flexible Server - управляемая версия той же PostgreSQL, без необходимости самим администрировать сервер (раздел 15).
+- **Переносимость**: так как всё работает в контейнерах, при необходимости (например, если проблемы с 152-ФЗ или с доступностью Azure из России) базу и всё окружение можно перенести на VPS в РФ - это будет передеплой, а не переписывание кода.
+
+## 6. EF Core + Npgsql, миграции
+
+**EF Core** (Entity Framework Core) - ORM (Object-Relational Mapper) от Microsoft: он переводит операции с C#-объектами в SQL-запросы к базе. **Npgsql** - провайдер EF Core для PostgreSQL (без него EF Core не умеет с ней работать).
+
+Как добавить миграцию для модуля Identity (команда из `CLAUDE.md`):
+
+```bash
+dotnet ef migrations add <Name> --project src/Modules/CareNest.Identity --output-dir Persistence/Migrations --namespace CareNest.Identity.Persistence.Migrations
+```
+
+**Почему миграции не запускаются при старте API.** Если приложение само накатывает миграции при запуске, это опасно при масштабировании (несколько экземпляров API могут попытаться мигрировать базу одновременно) и не даёт контролируемо откатить или отследить момент применения миграции в проде. Поэтому у нас есть отдельный процесс - **`CareNest.MigrationService`** (`src/CareNest.MigrationService`), который явно вызывает `MigrateIdentityDatabaseAsync` и применяет миграции до того, как поднимется API. Локально `CareNest.AppHost` запускает его и ждёт завершения (`WaitForCompletion(migrations)`, см. `src/CareNest.AppHost/AppHost.cs`) перед стартом `CareNest.Api`; при деплое в Azure миграции точно так же будут отдельным шагом (раздел 15).
+
+## 7. NodaTime
+
+**NodaTime** - альтернативная библиотека даты и времени для .NET, созданная потому что встроенные `DateTime` и `DateTimeOffset` исторически путают "момент времени", "локальное время" и "часовой пояс" и легко приводят к багам (особенно с летним/зимним временем и разными таймзонами пользователей).
+
+У нас: `DateTime` не используется ни в доменном, ни в persistence-коде (кроме сгенерированных EF-миграций - это исключение зафиксировано в плане). Вместо этого:
+- **`Instant`** - точный момент времени в UTC, без привязки к часовому поясу - для меток "когда это произошло" (создание приглашения, отправка письма и т.д.);
+- **часовой пояс пользователя** хранится как IANA id (например, `Europe/Moscow`), а не как смещение - потому что смещение может измениться из-за перехода на летнее время, а имя зоны - нет;
+- **`LocalDateTime` + зона** - когда нужно локальное "настенное" время человека;
+- **`IClock`** - абстракция над "текущим временем", которая внедряется через DI. В продакшене это `SystemClock.Instance` (см. `src/CareNest.Api/Program.cs`), а в тестах - `FakeClock` из `NodaTime.Testing`, что позволяет тестам управлять временем напрямую, не дожидаясь реальных минут и не гоняясь за `DateTime.Now` в моках.
+
+## 8. ASP.NET Core Identity без паролей
+
+Аутентификация построена на **ASP.NET Core Identity** - стандартной библиотеке Microsoft для управления пользователями, ролями и входом в систему - но без паролей вообще. Управляемые решения (Azure AD B2C, Entra External ID) не подошли: B2C закрыт для новых клиентов, а Entra External ID не поддерживает Telegram и не имеет готовой интеграции с VK или Yandex.
+
+Способы входа:
+- **Google** - через OpenID Connect (OIDC).
+- **Yandex ID** - через OAuth 2.0 (пакет `AspNet.Security.OAuth.Yandex`).
+- **VK ID** - через OAuth 2.1 с PKCE (Proof Key for Code Exchange - защита кода авторизации от перехвата; пакет `AspNet.Security.OAuth.VkId`).
+- **Telegram** - через Login Widget, с проверкой подписи HMAC секретом бота.
+- **Email** - magic link (одноразовая ссылка для входа), живёт 15 минут, одноразовая, отправляется через Azure Communication Services Email в проде и через Mailpit локально (раздел 11).
+
+Сессии - **cookie**, а не токены в JavaScript: `HttpOnly` (недоступна из JS - защита от XSS), `Secure` (только по HTTPS), `SameSite=Lax` (базовая защита от CSRF). Настройка cookie - в `IdentityModule.ConfigureSessionCookie` (`src/Modules/CareNest.Identity/IdentityModule.cs`). Такой подход требует, чтобы приложения и API были на одном регистрируемом домене (`app.`, `studio.`, `api.` - поддомены одного домена), иначе браузер cookie между ними не пропустит.
+
+Почему аккаунты не склеиваются по email: у Telegram email вообще нет, а автоматическое объединение аккаунтов по непроверенному email открывает путь к захвату чужого аккаунта (кто-то регистрируется на чужой email раньше настоящего владельца). Поэтому привязка второго способа входа возможна только вручную, пока пользователь уже вошёл в систему.
+
+## 9. OpenAPI
+
+**OpenAPI** - стандарт описания HTTP API в машиночитаемом формате (какие есть эндпоинты, какие у них параметры, какие ответы). У нас документ генерируется прямо из кода (`builder.Services.AddOpenApi(...)` и `app.MapOpenApi()` в `src/CareNest.Api/Program.cs`) и доступен по адресу `/openapi/v1.json`. Это единый источник правды о контракте API для всех клиентов.
+
+В плане 2 из этого документа будет автоматически сгенерирован TypeScript-клиент для фронтенда с помощью инструмента **orval** - то есть фронтенд не будет писать HTTP-запросы руками, а получит готовые типизированные хуки.
+
+## 10. .NET Aspire
+
+**.NET Aspire** - набор инструментов Microsoft для локальной разработки распределённых приложений: он поднимает связанные сервисы (базу, очереди, другие процессы) одной командой, настраивает между ними service discovery, прокидывает переменные окружения и даёт единый дашборд с логами и трассировками.
+
+Наш `CareNest.AppHost` (`src/CareNest.AppHost/AppHost.cs`) описывает окружение так:
+
+```csharp
+var postgres = builder.AddPostgres("postgres").WithDataVolume();
+var database = postgres.AddDatabase("carenest");
+var email = builder.AddMailPit("email");
+
+var migrations = builder.AddProject<Projects.CareNest_MigrationService>("migrations")
+    .WithReference(database)
+    .WaitFor(database);
+
+builder.AddProject<Projects.CareNest_Api>("api")
+    .WithReference(database)
+    .WithReference(email)
+    .WaitFor(database)
+    .WaitForCompletion(migrations);
+```
+
+То есть при запуске поднимаются: контейнер PostgreSQL, контейнер Mailpit, процесс `CareNest.MigrationService` (ждёт готовности базы), и только после успешного завершения миграций - `CareNest.Api` (тоже ждёт базу и Mailpit).
+
+Запуск:
+
+```bash
+dotnet run --project src/CareNest.AppHost
+```
+
+После запуска открывается **Aspire-дашборд** в браузере - там видно список всех запущенных ресурсов, их логи в реальном времени, распределённые трассировки запросов (через OpenTelemetry - см. `CareNest.ServiceDefaults`) и метрики.
+
+Чем это удобнее docker-compose: docker-compose описывает только контейнеры и их сети, а Aspire ещё и умеет управлять процессами .NET напрямую (без обёртывания в Docker), автоматически прокидывает connection string'и и адреса сервисов друг другу через переменные окружения, и даёт единый экран для логов/трейсов сразу для контейнеров и .NET-процессов вместе - не нужно параллельно смотреть `docker logs` и консоль `dotnet run`.
+
+## 11. Mailpit
+
+**Mailpit** - фейковый SMTP-сервер с веб-интерфейсом для разработки: приложение отправляет письмо на него как на настоящий SMTP, но письмо никуда за пределы машины не уходит - оно оседает в Mailpit, и его можно посмотреть в браузере.
+
+У нас это значит: письма с magic link при локальной разработке не отправляются реальным получателям - они видны в веб-интерфейсе Mailpit (по умолчанию поднимается Aspire'ом вместе с остальным стеком, см. раздел 10). Это удобно для разработки и e2e-тестов - не нужен реальный email-провайдер и не нужно проверять реальный почтовый ящик.
+
+В продакшене вместо Mailpit используется **Azure Communication Services Email** - управляемый сервис отправки почты (раздел 15).
+
+## 12. Docker
+
+Docker - платформа для запуска приложений в изолированных контейнерах. В этом проекте Docker не запускает саму продакшен-нагрузку локально, но нужен для двух вещей:
+- **.NET Aspire** поднимает PostgreSQL и Mailpit как Docker-контейнеры (раздел 10) - без установленного и запущенного Docker Desktop (или аналога) `dotnet run --project src/CareNest.AppHost` не сможет их создать;
+- **Testcontainers** в интеграционных тестах поднимает настоящий PostgreSQL в контейнере на время тестового прогона (раздел 13) - `dotnet test CareNest.slnx` тоже требует, чтобы Docker был запущен (это явно указано в `CLAUDE.md`).
+
+## 13. Тесты
+
+- **xUnit v3** - фреймворк для unit- и интеграционных тестов в .NET (используется версия `xunit.v3`).
+- **Shouldly** - библиотека для более читаемых assert'ов: вместо `Assert.Equal(expected, actual)` пишется `actual.ShouldBe(expected)`, а при падении тест выводит понятное сообщение об ошибке.
+- **Testcontainers** (`Testcontainers.PostgreSql`) - для `CareNest.Api.IntegrationTests`: вместо мока базы данных или SQLite поднимается настоящий PostgreSQL в Docker-контейнере на время теста, так тесты проверяют поведение на той же СУБД, что и в проде (включая NodaTime-типы, `jsonb` и специфичные для PostgreSQL детали).
+- **NetArchTest** (`NetArchTest.Rules`) - библиотека для тестов, которые проверяют не поведение кода, а его структуру: например, "ни один класс из модуля Identity, кроме публичного API, не должен быть виден снаружи" (`CareNest.ArchitectureTests`).
+- **FakeClock** (`NodaTime.Testing`) - подменяет `IClock` в тестах, чтобы управлять "текущим временем" напрямую (раздел 7).
+
+Команды (из `CLAUDE.md`):
+
+```bash
+dotnet build CareNest.slnx
+dotnet test CareNest.slnx                       # нужен запущенный Docker
+dotnet test tests/CareNest.Identity.Tests       # один проект
+```
+
+## 14. CI
+
+GitHub Actions workflow `.github/workflows/backend.yml` запускается на каждый pull request и на push в `main`. Что он делает:
+1. Скачивает код (`actions/checkout`).
+2. Ставит .NET SDK ровно той версии, что закреплена в `global.json` (`actions/setup-dotnet` с `global-json-file: global.json`) - то есть в CI используется та же версия SDK, что и локально.
+3. `dotnet restore CareNest.slnx` - восстанавливает NuGet-пакеты.
+4. `dotnet build CareNest.slnx --no-restore --configuration Release` - собирает решение в конфигурации Release.
+5. `dotnet test CareNest.slnx --no-build --configuration Release` - прогоняет все тесты решения (unit, интеграционные через Testcontainers и архитектурные).
+
+`main` защищён: изменения попадают туда только через pull request с зелёным CI.
+
+## 15. Azure (план 3, ещё не настроен и не оплачен)
+
+Важно: то, что описано ниже, - это план, зафиксированный в спецификации, а не работающая инфраструктура. Ничего из этого раздела в репозитории пока не развёрнуто и не оплачивается.
+
+- **Azure Container Apps** - управляемая платформа для запуска контейнеризированных приложений (serverless: не нужно вручную администрировать виртуальные машины) - здесь будет жить `CareNest.Api`.
+- **Azure Database for PostgreSQL Flexible Server** (Burstable B1ms - самый дешёвый уровень с "всплесками" производительности) - управляемый PostgreSQL: бэкапы, обновления, мониторинг берёт на себя Azure.
+- **Azure Static Web Apps** - хостинг для статических фронтенд-приложений (собранных Vite-приложений `client` и `studio`) с бесплатными preview-окружениями на каждый pull request.
+- **Key Vault** - хранилище секретов (пароли, ключи OAuth-приложений, токен Telegram-бота); Container Apps будет читать их через managed identity, без секретов в переменных окружения или в репозитории.
+- **Application Insights** (через OpenTelemetry) - сервис мониторинга и трассировки: логи, метрики и распределённые трейсы, которые локально видны в Aspire-дашборде (раздел 10), в проде будут экспортироваться сюда.
+- **Azure Communication Services Email** - управляемая отправка почты, заменяющая Mailpit в проде (раздел 11).
+- **azd** (Azure Developer CLI) - CLI-инструмент, который по декларативному описанию (сгенерированному из модели Aspire в Bicep) разворачивает и обновляет все азурные ресурсы одной командой.
+
+По спецификации: регион по умолчанию - EU, а вопрос соответствия 152-ФЗ (закон о персональных данных, действующий в России) для этого региона остаётся открытым. Также нужен собственный купленный домен - потому что cookie-сессии (раздел 8) требуют, чтобы `app.`, `studio.` и `api.` были поддоменами одного домена, а стандартные азурные адреса (`*.azurestaticapps.net`, `*.azurecontainerapps.io`) на одном домене не окажутся.
+
+## 16. Фронтенд (план 2, кратко)
+
+Фронтенд ещё не реализован в этом под-проекте - каталог `web/` появится в плане 2. По спецификации там будет:
+- **Vite** - быстрый инструмент сборки фронтенда (dev-сервер и бандлер);
+- **React** - библиотека для построения UI;
+- **TypeScript** - типизированный JavaScript;
+- **pnpm workspace** - монорепозиторий из нескольких пакетов (`apps/client`, `apps/studio`, общие `packages/`), управляемый одним пакетным менеджером (pnpm);
+- **PWA** (Progressive Web App, через `vite-plugin-pwa`) - родительское приложение `client` можно будет установить на телефон как обычное приложение, без публикации в App Store/Google Play;
+- **Telegram Mini App** - тот же `client` также будет открываться прямо внутри Telegram как встроенное веб-приложение.
+
+Подробности - в `docs/superpowers/specs/foundation-design.md`, раздел 6.
+
+## 17. Что почитать и посмотреть
+
+**.NET 10 / ASP.NET Core / Minimal API**
+- https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis
+- https://learn.microsoft.com/en-us/aspnet/core/fundamentals/openapi/aspnetcore-openapi
+- YouTube (RU): `ASP.NET Core Minimal API обзор`
+- YouTube (EN): `ASP.NET Core Minimal APIs tutorial`
+
+**PostgreSQL**
+- https://www.postgresql.org/docs/
+- YouTube (RU): `PostgreSQL для разработчиков`
+- YouTube (EN): `PostgreSQL crash course`
+
+**EF Core + Npgsql**
+- https://learn.microsoft.com/en-us/ef/core/
+- https://www.npgsql.org/efcore/mapping/nodatime.html
+- YouTube (RU): `Entity Framework Core обзор`
+- YouTube (EN): `EF Core tutorial`
+
+**NodaTime**
+- https://nodatime.org/3.3.x/userguide/
+- YouTube (EN): `NodaTime C# tutorial`
+
+**ASP.NET Core Identity**
+- https://learn.microsoft.com/en-us/aspnet/core/security/authentication/identity
+- Telegram Login Widget: https://core.telegram.org/widgets/login
+- Telegram Mini Apps: https://core.telegram.org/bots/webapps
+- YouTube (RU): `ASP.NET Core Identity без пароля`
+- YouTube (EN): `ASP.NET Core Identity passwordless magic link`
+
+**.NET Aspire**
+- https://learn.microsoft.com/en-us/dotnet/aspire/
+- Видео: [What Is .NET Aspire? The Insane Future of .NET! - Nick Chapsas](https://www.youtube.com/watch?v=DORZA_S7f9w)
+- YouTube (RU): `.NET Aspire обзор`
+
+**Mailpit**
+- https://mailpit.axllent.org/docs/
+- YouTube (EN): `Mailpit dotnet local email testing`
+
+**Docker**
+- https://docs.docker.com/get-started/
+- YouTube (RU): `Docker для разработчика обзор`
+- YouTube (EN): `Docker for developers crash course`
+
+**Тесты: xUnit, Shouldly, Testcontainers, NetArchTest**
+- https://xunit.net/
+- https://docs.shouldly.org/
+- https://dotnet.testcontainers.org/ и https://testcontainers.com/guides/getting-started-with-testcontainers-for-dotnet/
+- https://github.com/BenMorris/NetArchTest
+- YouTube (RU): `Testcontainers .NET интеграционные тесты`
+- YouTube (EN): `Testcontainers dotnet integration testing`
+
+**Azure (план 3)**
+- Container Apps: https://learn.microsoft.com/en-us/azure/container-apps/overview
+- Azure Database for PostgreSQL Flexible Server: https://learn.microsoft.com/en-us/azure/postgresql/overview
+- Static Web Apps: https://learn.microsoft.com/en-us/azure/static-web-apps/overview
+- Key Vault: https://learn.microsoft.com/en-us/azure/key-vault/general/overview
+- Application Insights + OpenTelemetry: https://learn.microsoft.com/en-us/azure/azure-monitor/app/app-insights-overview
+- Azure Communication Services Email: https://learn.microsoft.com/en-us/azure/communication-services/concepts/email/email-overview
+- Azure Developer CLI (azd): https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/overview
+- YouTube (RU): `Azure Container Apps обзор`
+- YouTube (EN): `Azure Developer CLI azd tutorial`
+
+**Фронтенд (план 2)**
+- https://vite.dev/guide/
+- https://react.dev/
+- https://www.typescriptlang.org/docs/
+- https://pnpm.io/workspaces
+- https://vite-pwa-org.netlify.app/guide/
+- YouTube (RU): `Vite React TypeScript обзор`
+- YouTube (EN): `Vite React TypeScript tutorial`
