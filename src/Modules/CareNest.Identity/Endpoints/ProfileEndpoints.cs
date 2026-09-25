@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using CareNest.Identity.Domain;
+using CareNest.Identity.Security;
+using CareNest.SharedKernel.Validation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -14,6 +16,7 @@ internal static class ProfileEndpoints
     {
         var me = group.MapGroup("/me").RequireAuthorization();
         me.MapGet("", GetAsync);
+        me.MapPut("", UpdateAsync).WithRequestValidation<UpdateProfileRequest>();
         group.MapPost("/signout", SignOutAsync);
         return me;
     }
@@ -36,6 +39,24 @@ internal static class ProfileEndpoints
         // A valid cookie can outlive its user (deleted account on another device).
         var user = await users.GetUserAsync(principal);
         return user is null ? TypedResults.Unauthorized() : TypedResults.Ok(await ToResponseAsync(user, users));
+    }
+
+    private static async Task<Results<Ok<MeResponse>, UnauthorizedHttpResult>> UpdateAsync(
+        UpdateProfileRequest request,
+        ClaimsPrincipal principal,
+        UserManager<User> users)
+    {
+        var user = await users.GetUserAsync(principal);
+        if (user is null)
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        user.DisplayName = request.DisplayName.Trim();
+        user.Language = request.Language;
+        user.TimeZone = request.TimeZone;
+        (await users.UpdateAsync(user)).ThrowIfFailed();
+        return TypedResults.Ok(await ToResponseAsync(user, users));
     }
 
     private static async Task<NoContent> SignOutAsync(SignInManager<User> signIn)

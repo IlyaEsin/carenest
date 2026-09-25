@@ -55,3 +55,15 @@ internal sealed record TelegramCompleteRequest
 }
 
 internal sealed record ProvidersResponse(IReadOnlyList<string> Providers, string? TelegramBotName);
+
+internal sealed record UpdateProfileRequest
+{
+    [Required, StringLength(100, MinimumLength = 1)]
+    public required string DisplayName { get; init; }
+
+    [Required, AllowedValues(Languages.Russian, Languages.English)]
+    public required string Language { get; init; }
+
+    [Required, IanaTimeZone]
+    public required string TimeZone { get; init; }
+}
