@@ -103,6 +103,18 @@ public class EmailSignInTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Concurrent_starts_for_the_same_email_still_cap_at_three()
+    {
+        var email = NewEmail();
+        var client = factory.CreateHttpsClient();
+
+        var responses = await Task.WhenAll(Enumerable.Range(0, 6).Select(_ => StartAsync(client, email)));
+
+        responses.ShouldAllBe(response => response.StatusCode == HttpStatusCode.Accepted);
+        factory.Emails.SentTo(email).Count.ShouldBe(3);
+    }
+
+    [Fact]
     public async Task Configured_admin_email_gets_the_admin_role()
     {
         var admin = await factory.GetAdminClientAsync();

@@ -53,25 +53,39 @@ internal static class EmailSignInEndpoints
         var email = EmailLogin.Normalize(request.Email);
         var now = clock.GetCurrentInstant();
         var windowStart = now - ThrottleWindow;
-        // The response is identical when throttled so the endpoint does not reveal anything about the address.
-        if (await db.MagicLinkTokens.CountAsync(t => t.Email == email && t.CreatedAt > windowStart, cancellationToken) >= MaxLinksPerWindow)
+        var token = SecureTokens.Create();
+        var throttled = false;
+
+        await using (var transaction = await db.Database.BeginTransactionAsync(cancellationToken))
+        {
+            // Serialises concurrent starts for the same address, so the count-then-insert below cannot race.
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({email}, 0))", cancellationToken);
+
+            // The response is identical when throttled so the endpoint does not reveal anything about the address.
+            throttled = await db.MagicLinkTokens.CountAsync(t => t.Email == email && t.CreatedAt > windowStart, cancellationToken) >= MaxLinksPerWindow;
+            if (!throttled)
+            {
+                db.MagicLinkTokens.Add(new MagicLinkToken
+                {
+                    Id = Guid.CreateVersion7(),
+                    TokenHash = token.Hash,
+                    Email = email,
+                    Language = request.Language,
+                    TimeZone = request.TimeZone,
+                    LinkUserId = linkUserId,
+                    CreatedAt = now,
+                    ExpiresAt = now + LinkLifetime,
+                });
+                await db.SaveChangesAsync(cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+
+        if (throttled)
         {
             return TypedResults.Accepted((string?)null);
         }
-
-        var token = SecureTokens.Create();
-        db.MagicLinkTokens.Add(new MagicLinkToken
-        {
-            Id = Guid.CreateVersion7(),
-            TokenHash = token.Hash,
-            Email = email,
-            Language = request.Language,
-            TimeZone = request.TimeZone,
-            LinkUserId = linkUserId,
-            CreatedAt = now,
-            ExpiresAt = now + LinkLifetime,
-        });
-        await db.SaveChangesAsync(cancellationToken);
 
         var existing = await users.FindByLoginAsync(EmailLogin.Provider, email);
         var link = QueryHelpers.AddQueryString(request.CallbackUrl, "token", token.Value);
