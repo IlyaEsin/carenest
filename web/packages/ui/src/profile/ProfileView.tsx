@@ -16,8 +16,21 @@ import { resetSession, useMe } from '../session/session';
 
 const profilePath = '/profile';
 
+export const timeZoneListId = 'time-zones';
+
 function timeZoneOptions(): string[] {
   return typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
+}
+
+// Shared by ProfileView and any other form that asks for an IANA zone, so the list of options is defined once.
+export function TimeZoneOptions() {
+  return (
+    <datalist id={timeZoneListId}>
+      {timeZoneOptions().map((zone) => (
+        <option key={zone} value={zone} />
+      ))}
+    </datalist>
+  );
 }
 
 function ProfileForm({ me }: { me: MeResponse }) {
@@ -67,16 +80,12 @@ function ProfileForm({ me }: { me: MeResponse }) {
       <Field id="timeZone" label={t('profile:timeZone')} hint={t('profile:timeZoneHint')} error={fieldError('timeZone')}>
         <Input
           {...fieldAria('timeZone', { error: fieldError('timeZone'), hint: t('profile:timeZoneHint') })}
-          list="time-zones"
+          list={timeZoneListId}
           autoComplete="off"
           value={timeZone}
           onChange={(event) => setTimeZone(event.target.value)}
         />
-        <datalist id="time-zones">
-          {timeZoneOptions().map((zone) => (
-            <option key={zone} value={zone} />
-          ))}
-        </datalist>
+        <TimeZoneOptions />
       </Field>
       <ErrorAlert error={update.error} />
       {update.isSuccess && <Alert tone="success">{t('common:saved')}</Alert>}

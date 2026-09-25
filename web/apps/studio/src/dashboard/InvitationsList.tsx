@@ -17,12 +17,8 @@ export function InvitationsList({ me }: { me: MeResponse }) {
       <ul className="flex flex-col divide-y divide-border">
         {invitations.data?.map((invitation) => (
           <li key={invitation.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-            <span>
-              {t('studio:invitations.created')}: {format(invitation.createdAt)}
-            </span>
-            <span className="text-muted-foreground">
-              {t('studio:invitations.expires')}: {format(invitation.expiresAt)}
-            </span>
+            <span>{t('studio:invitations.created', { date: format(invitation.createdAt) })}</span>
+            <span className="text-muted-foreground">{t('studio:invitations.expires', { date: format(invitation.expiresAt) })}</span>
             <span className="rounded-full bg-soft px-3 py-0.5 font-semibold text-strong">{t(`studio:status.${invitation.status}`)}</span>
           </li>
         ))}

@@ -2,7 +2,7 @@ import { useGetProviders } from '@carenest/api-client';
 import { detectTimeZone, toLanguage } from '@carenest/i18n';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../components/button';
-import { externalSignInUrl } from '../session/navigation';
+import { externalSignInUrl, safeNext } from '../session/navigation';
 import { EmailSignInForm } from './EmailSignInForm';
 import { TelegramLoginButton } from './TelegramLoginButton';
 
@@ -33,7 +33,7 @@ export function SignInPanel({ next, onSignedIn }: SignInPanelProps) {
           {t('auth:continueWith', { method: t(`auth:method.${provider}`) })}
         </Button>
       ))}
-      {telegramBot && <TelegramLoginButton botName={telegramBot} mode="signin" onSignedIn={() => onSignedIn(next)} />}
+      {telegramBot && <TelegramLoginButton botName={telegramBot} mode="signin" onSignedIn={() => onSignedIn(safeNext(next))} />}
       {(oauth.length > 0 || telegramBot) && (
         <div className="flex items-center gap-3 text-sm text-muted-foreground" aria-hidden>
           <span className="h-px flex-1 bg-border" />

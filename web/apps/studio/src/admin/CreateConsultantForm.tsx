@@ -1,6 +1,20 @@
 import { useCreateConsultant } from '@carenest/api-client';
 import { languages } from '@carenest/i18n';
-import { Alert, Button, Card, ErrorAlert, Field, Input, PageTitle, Select, fieldAria, invalidFields, useMe } from '@carenest/ui';
+import {
+  Alert,
+  Button,
+  Card,
+  ErrorAlert,
+  Field,
+  Input,
+  PageTitle,
+  Select,
+  TimeZoneOptions,
+  fieldAria,
+  invalidFields,
+  timeZoneListId,
+  useMe,
+} from '@carenest/ui';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -47,7 +61,14 @@ export function CreateConsultantForm() {
             </Select>
           </Field>
           <Field id="consultantTimeZone" label={t('studio:admin.timeZone')} error={fieldError('timeZone')}>
-            <Input {...fieldAria('consultantTimeZone', { error: fieldError('timeZone') })} value={timeZone} onChange={(event) => setTimeZone(event.target.value)} />
+            <Input
+              {...fieldAria('consultantTimeZone', { error: fieldError('timeZone') })}
+              list={timeZoneListId}
+              autoComplete="off"
+              value={timeZone}
+              onChange={(event) => setTimeZone(event.target.value)}
+            />
+            <TimeZoneOptions />
           </Field>
           <ErrorAlert error={create.error} />
           {create.isSuccess && <Alert tone="success">{t('studio:admin.created', { email: create.variables.data.email })}</Alert>}

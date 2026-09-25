@@ -48,7 +48,7 @@ describe('InvitationsList', () => {
     renderWithProviders(<InvitationsList me={consultant} />, 'ru');
 
     expect(await screen.findByText('Истекло')).toBeInTheDocument();
-    expect(screen.getByText('Создано: 5 янв. 2026 г., 14:00')).toBeInTheDocument();
+    expect(screen.getByText('Создано 5 янв. 2026 г., 14:00')).toBeInTheDocument();
   });
 });
 

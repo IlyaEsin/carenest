@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
@@ -60,5 +60,17 @@ describe('SignInPanel', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Please check the entered data');
     expect(screen.getByLabelText('Email')).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('sanitizes a hostile next path before handing it to onSignedIn after a Telegram sign-in', async () => {
+    providers(['email', 'Telegram'], 'carenest_bot');
+    server.use(http.post(`${testApi}/api/identity/telegram/complete`, () => new HttpResponse(null, { status: 204 })));
+    const onSignedIn = vi.fn();
+    renderWithProviders(<SignInPanel next="https://evil.example" onSignedIn={onSignedIn} />);
+
+    await waitFor(() => expect(window.cnTelegramAuth).toBeDefined());
+    window.cnTelegramAuth?.({ id: 42, first_name: 'Anna', auth_date: 1767603600, hash: 'abc' });
+
+    await waitFor(() => expect(onSignedIn).toHaveBeenCalledWith('/'));
   });
 });
