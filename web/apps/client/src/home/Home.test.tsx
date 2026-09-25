@@ -50,4 +50,38 @@ describe('Home', () => {
     expect(await screen.findByText('Consultant')).toBeInTheDocument();
     expect(screen.queryByText('No active consultations')).not.toBeInTheDocument();
   });
+
+  it('shows no empty-state text while the consultants query is still pending', () => {
+    // Never resolves, so the query stays pending for the life of the test.
+    server.use(http.get(`${testApi}/api/identity/me/consultants`, () => new Promise(() => {})));
+    const queryClient = createQueryClient();
+    queryClient.setQueryData(meQuery.queryKey, me);
+    renderWithProviders(
+      <Suspense>
+        <Home />
+      </Suspense>,
+      'en',
+      queryClient,
+    );
+
+    expect(screen.queryByText('No active consultations')).not.toBeInTheDocument();
+    expect(screen.queryByText('Consultant')).not.toBeInTheDocument();
+  });
+
+  it('shows the error alert instead of the empty state when the consultants request fails', async () => {
+    // 404 is not retried by the query client's default retry policy, so the error settles immediately.
+    server.use(http.get(`${testApi}/api/identity/me/consultants`, () => new HttpResponse(null, { status: 404 })));
+    const queryClient = createQueryClient();
+    queryClient.setQueryData(meQuery.queryKey, me);
+    renderWithProviders(
+      <Suspense>
+        <Home />
+      </Suspense>,
+      'en',
+      queryClient,
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Not found');
+    expect(screen.queryByText('No active consultations')).not.toBeInTheDocument();
+  });
 });
