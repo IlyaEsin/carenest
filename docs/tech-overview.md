@@ -34,7 +34,18 @@ tests/
 - `CareNest.AppHost` не содержит бизнес-логики - это программа для локального запуска и модель деплоя (см. раздел 11).
 - `CareNest.MigrationService` - отдельный процесс, который применяет миграции баз данных; API-хост миграции не запускает (раздел 6).
 
-Фронтенд (`web/`) появится в следующем под-проекте (план 2) и в этом репозитории пока не создан - см. раздел 17.
+Фронтенд живёт в `web/` (раздел 17):
+
+```
+web/
+├─ apps/client/     приложение родителя: PWA, mobile-first
+├─ apps/studio/     кабинет консультанта и админка, laptop-first
+└─ packages/
+   ├─ api-client/   клиент API, сгенерированный из OpenAPI (orval)
+   ├─ i18n/         словари RU/EN и форматирование дат
+   └─ ui/           тема, компоненты, вход, профиль
+tests/e2e/          сценарии Playwright (они же живая демонстрация)
+```
 
 ## 3. .NET 10 - почему именно 10
 
@@ -247,17 +258,36 @@ GitHub Actions workflow `.github/workflows/backend.yml` запускается �
 
 По спецификации: регион по умолчанию - EU, а вопрос соответствия 152-ФЗ (закон о персональных данных, действующий в России) для этого региона остаётся открытым. Также нужен собственный купленный домен - потому что cookie-сессии (раздел 8) требуют, чтобы `app.`, `studio.` и `api.` были поддоменами одного домена, а стандартные азурные адреса (`*.azurestaticapps.net`, `*.azurecontainerapps.io`) на одном домене не окажутся.
 
-## 17. Фронтенд (план 2, кратко)
+## 17. Фронтенд
 
-Фронтенд ещё не реализован в этом под-проекте - каталог `web/` появится в плане 2. По спецификации там будет:
-- **Vite** - быстрый инструмент сборки фронтенда (dev-сервер и бандлер);
-- **React** - библиотека для построения UI;
-- **TypeScript** - типизированный JavaScript;
-- **pnpm workspace** - монорепозиторий из нескольких пакетов (`apps/client`, `apps/studio`, общие `packages/`), управляемый одним пакетным менеджером (pnpm);
-- **PWA** (Progressive Web App, через `vite-plugin-pwa`) - родительское приложение `client` можно будет установить на телефон как обычное приложение, без публикации в App Store/Google Play;
-- **Telegram Mini App** - тот же `client` также будет открываться прямо внутри Telegram как встроенное веб-приложение.
+Два приложения и три общих пакета в одном pnpm workspace (`web/`). Команды запускаются из `web/`: `pnpm install`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
 
-Подробности - в `docs/superpowers/specs/foundation-design.md`, раздел 6.
+### 17.1 pnpm workspace и TypeScript
+
+**pnpm** - пакетный менеджер для Node.js. Workspace - это несколько пакетов в одном репозитории с общим `pnpm-lock.yaml`: приложения подключают общие пакеты как `"@carenest/ui": "workspace:*"`, без публикации в npm. Версия pnpm закреплена в `web/package.json` (`packageManager`), версии всех зависимостей - точные.
+
+**TypeScript** - JavaScript с типами; общие настройки компилятора в `web/tsconfig.base.json` (`strict`). TypeScript держим на 6.0: линтер typescript-eslint пока не поддерживает TypeScript 7.
+
+Официальная документация: https://pnpm.io/workspaces, https://www.typescriptlang.org/docs/
+YouTube (EN): `pnpm workspaces monorepo tutorial`
+
+### 17.2 orval: клиент API из OpenAPI
+
+**orval** читает OpenAPI-документ и генерирует TypeScript-типы и хуки TanStack Query (`useGetMe`, `useStartEmailSignIn`...), так что фронтенд не пишет HTTP-запросы руками. Цепочка контракта:
+1. интеграционный тест `OpenApiContractTests` сравнивает документ, который отдаёт API, с закоммиченным `web/packages/api-client/openapi.json` (после намеренного изменения API: `CARENEST_UPDATE_OPENAPI=1 dotnet test tests/CareNest.Api.IntegrationTests`);
+2. `pnpm generate:api` генерирует `web/packages/api-client/src/generated/` из этого файла; результат коммитится, CI проверяет, что он не устарел.
+
+Имена хуков берутся из `.WithName(...)` у эндпоинтов, поэтому у каждого эндпоинта должно быть имя. Ошибки приходят как `ApiProblem` с кодом (`identity.invite_expired`), который UI переводит.
+
+Официальная документация: https://orval.dev/
+YouTube (EN): `orval openapi react query`
+
+### 17.3 ESLint и Vitest
+
+**ESLint** проверяет код на ошибки и опасные паттерны; конфигурация одна на весь workspace (`web/eslint.config.js`), включая правила хуков React. **Vitest** - тестовый раннер, совместимый с Vite; тесты лежат рядом с кодом (`*.test.ts(x)`).
+
+Официальная документация: https://eslint.org/docs/latest/, https://vitest.dev/guide/
+YouTube (EN): `Vitest tutorial`
 
 ## 18. Что почитать и посмотреть
 
