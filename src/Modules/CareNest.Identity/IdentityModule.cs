@@ -68,6 +68,8 @@ public static class IdentityModule
         group.MapEmailSignIn();
         group.MapProfile();
         group.MapExternalSignIn();
+        group.MapAdmin();
+        group.MapInvitations();
         return app;
     }
 

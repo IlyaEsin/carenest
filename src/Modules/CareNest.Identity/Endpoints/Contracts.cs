@@ -4,6 +4,7 @@ using CareNest.Identity.Accounts;
 using CareNest.SharedKernel.Localization;
 using CareNest.SharedKernel.Time;
 using CareNest.SharedKernel.Validation;
+using NodaTime;
 
 namespace CareNest.Identity.Endpoints;
 
@@ -67,3 +68,26 @@ internal sealed record UpdateProfileRequest
     [Required, IanaTimeZone]
     public required string TimeZone { get; init; }
 }
+
+internal sealed record CreateConsultantRequest
+{
+    [Required, EmailAddress, StringLength(256)]
+    public required string Email { get; init; }
+
+    [Required, StringLength(100, MinimumLength = 1)]
+    public required string DisplayName { get; init; }
+}
+
+internal sealed record CreateConsultantResponse(Guid UserId);
+
+internal sealed record CreateInvitationResponse(Guid Id, string Url, Instant ExpiresAt);
+
+internal sealed record InvitationResponse(Guid Id, Instant CreatedAt, Instant ExpiresAt, string Status);
+
+internal sealed record AcceptInvitationRequest
+{
+    [Required, StringLength(128)]
+    public required string Token { get; init; }
+}
+
+internal sealed record ClientResponse(Guid UserId, string DisplayName, Instant LinkedAt);

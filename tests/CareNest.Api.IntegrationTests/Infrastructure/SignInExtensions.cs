@@ -33,4 +33,13 @@ internal static class SignInExtensions
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         return await response.ReadAsAsync<MeResponse>();
     }
+
+    public static async Task<HttpClient> CreateConsultantClientAsync(this ApiFactory factory)
+    {
+        var email = NewEmail("consultant");
+        var admin = await factory.GetAdminClientAsync();
+        var created = await admin.PostAsJsonAsync("/api/identity/admin/consultants", new { email, displayName = "Consultant" });
+        created.StatusCode.ShouldBe(HttpStatusCode.OK);
+        return await factory.SignedInClientAsync(email);
+    }
 }
