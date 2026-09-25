@@ -15,6 +15,7 @@ Platform that automates an independent consultant's work with parents; the first
 - One project: `dotnet test tests/CareNest.Identity.Tests`
 - Run locally (PostgreSQL, Mailpit, migrations, API, Aspire dashboard): `dotnet run --project src/CareNest.AppHost`
 - New Identity migration: `dotnet ef migrations add <Name> --project src/Modules/CareNest.Identity --output-dir Persistence/Migrations --namespace CareNest.Identity.Persistence.Migrations`
+- Try the API in a browser (Development): `<api>/scalar`; scripted scenario: `src/CareNest.Api/CareNest.Api.http`
 
 ## Layout and module boundaries
 
