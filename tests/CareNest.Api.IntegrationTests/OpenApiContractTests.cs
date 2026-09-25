@@ -39,6 +39,7 @@ public class OpenApiContractTests(ApiFactory factory)
         var codes = document["components"]!["schemas"]!["ErrorCode"]!["enum"]!.AsArray().Select(code => code!.GetValue<string>()).ToList();
         codes.ShouldContain("validation_failed");
         codes.ShouldContain("identity.invite_expired");
+        codes.ShouldContain("identity.magic_link_other_browser");
     }
 
     private static string RepositoryRoot()

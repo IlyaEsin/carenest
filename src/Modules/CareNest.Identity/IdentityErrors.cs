@@ -20,6 +20,7 @@ internal static class IdentityErrors
     public static readonly ApiError InviteUsed = new("identity.invite_used", StatusCodes.Status409Conflict);
     public static readonly ApiError InviteExpired = new("identity.invite_expired", StatusCodes.Status410Gone);
     public static readonly ApiError InviteOwn = new("identity.invite_own", StatusCodes.Status400BadRequest);
+    public static readonly ApiError MagicLinkOtherBrowser = new("identity.magic_link_other_browser", StatusCodes.Status403Forbidden);
 
     // Lazy, so this cannot read as null at type initialisation regardless of where a new error field is declared.
     private static readonly Lazy<IReadOnlyList<string>> LazyCodes = new(() => typeof(IdentityErrors)

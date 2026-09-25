@@ -21,6 +21,7 @@ internal static class EmailSignInEndpoints
     public static readonly Duration LinkLifetime = Duration.FromMinutes(15);
     public static readonly Duration ThrottleWindow = Duration.FromMinutes(10);
     public const int MaxLinksPerWindow = 3;
+    public const string NonceCookie = "cn_email_nonce";
 
     public static void MapEmailSignIn(this RouteGroupBuilder group)
     {
@@ -51,6 +52,7 @@ internal static class EmailSignInEndpoints
         }
 
         var email = EmailLogin.Normalize(request.Email);
+        var nonce = BrowserNonce(http);
         var now = clock.GetCurrentInstant();
         var windowStart = now - ThrottleWindow;
         var token = SecureTokens.Create();
@@ -73,6 +75,7 @@ internal static class EmailSignInEndpoints
                     Language = request.Language,
                     TimeZone = request.TimeZone,
                     LinkUserId = linkUserId,
+                    BrowserNonceHash = SecureTokens.Hash(nonce),
                     CreatedAt = now,
                     ExpiresAt = now + LinkLifetime,
                 });
@@ -91,6 +94,21 @@ internal static class EmailSignInEndpoints
         var link = QueryHelpers.AddQueryString(request.CallbackUrl, "token", token.Value);
         await sender.SendAsync(MagicLinkEmail.Compose(email, existing?.Language ?? request.Language, link), cancellationToken);
         return TypedResults.Accepted((string?)null);
+    }
+
+    // Reuses the browser's nonce so a second request does not invalidate links already mailed.
+    private static string BrowserNonce(HttpContext http)
+    {
+        var nonce = http.Request.Cookies[NonceCookie] is { Length: > 0 } existing ? existing : SecureTokens.Create().Value;
+        http.Response.Cookies.Append(NonceCookie, nonce, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Path = "/api/identity/email",
+            MaxAge = LinkLifetime.ToTimeSpan(),
+        });
+        return nonce;
     }
 
     private static async Task<Results<NoContent, ProblemHttpResult>> CompleteAsync(
@@ -123,6 +141,12 @@ internal static class EmailSignInEndpoints
         if (token.LinkUserId is not null && token.LinkUserId != http.User.GetUserId())
         {
             return IdentityErrors.LinkSessionMismatch.ToProblem();
+        }
+
+        // Stops login CSRF: a link mailed to an attacker's address cannot sign in a victim's browser.
+        if (http.Request.Cookies[NonceCookie] is not { Length: > 0 } nonce || SecureTokens.Hash(nonce) != token.BrowserNonceHash)
+        {
+            return IdentityErrors.MagicLinkOtherBrowser.ToProblem();
         }
 
         // The conditional update makes the token single-use even when two requests race.

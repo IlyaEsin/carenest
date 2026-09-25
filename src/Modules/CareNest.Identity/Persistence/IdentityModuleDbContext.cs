@@ -47,6 +47,7 @@ internal sealed class IdentityModuleDbContext(
             token.Property(t => t.Email).HasMaxLength(256);
             token.Property(t => t.Language).HasMaxLength(5);
             token.Property(t => t.TimeZone).HasMaxLength(64);
+            token.Property(t => t.BrowserNonceHash).HasMaxLength(64);
             token.HasIndex(t => t.TokenHash).IsUnique();
             token.HasIndex(t => new { t.Email, t.CreatedAt });
             token.HasOne<User>().WithMany().HasForeignKey(t => t.LinkUserId).OnDelete(DeleteBehavior.Cascade);
