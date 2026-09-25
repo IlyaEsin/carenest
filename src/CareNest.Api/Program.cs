@@ -3,6 +3,7 @@ using CareNest.Identity;
 using CareNest.SharedKernel.Web;
 using NodaTime;
 using NodaTime.Serialization.SystemTextJson;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +26,12 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapOpenApi();
+if (app.Environment.IsDevelopment())
+{
+    // A UI to try requests against the real API origin, so the session cookie rides along; not for Testing or production.
+    app.MapScalarApiReference();
+}
+
 app.MapDefaultEndpoints();
 app.MapIdentityEndpoints();
 

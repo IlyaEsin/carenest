@@ -15,6 +15,14 @@ public class HostTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Scalar_reference_is_not_served_outside_development()
+    {
+        var response = await factory.CreateHttpsClient().GetAsync("/scalar");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task Cors_allows_frontend_origin_with_credentials()
     {
         var response = await SendPreflightAsync(ApiFactory.ClientAppUrl);
