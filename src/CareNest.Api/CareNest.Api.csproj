@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <UserSecretsId>carenest-api</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+    <PackageReference Include="NodaTime.Serialization.SystemTextJson" Version="1.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CareNest.ServiceDefaults\CareNest.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\CareNest.SharedKernel\CareNest.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>
