@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CareNest.SharedKernel/CareNest.SharedKernel.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CareNest.SharedKernel.Tests/CareNest.SharedKernel.Tests.csproj" />
+  </Folder>
+</Solution>

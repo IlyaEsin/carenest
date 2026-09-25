@@ -1,6 +1,6 @@
 # CareNest: Foundation (sub-project 1)
 
-Status: draft for review
+Status: approved
 Date: 2026-09-24
 
 ## 1. Context
@@ -51,9 +51,11 @@ carenest/
 │  ├─ CareNest.ServiceDefaults/  Aspire defaults: OpenTelemetry, health checks, resilience
 │  ├─ CareNest.Api/              host: startup, DI, route groups, OpenAPI
 │  ├─ CareNest.SharedKernel/     ids, errors, clock, language, consultant scoping primitives
+│  ├─ CareNest.MigrationService/   applies module migrations (local run and deploy step)
 │  └─ Modules/
 │     └─ CareNest.Identity/      users, sign-in, roles, profiles, invitations
 ├─ tests/
+│  ├─ CareNest.SharedKernel.Tests/
 │  ├─ CareNest.Identity.Tests/
 │  ├─ CareNest.Api.IntegrationTests/   WebApplicationFactory + Testcontainers PostgreSQL
 │  ├─ CareNest.ArchitectureTests/
@@ -76,7 +78,7 @@ carenest/
 - **.NET 10 (LTS, supported to November 2028).** .NET 8 reaches end of support in November 2026 and is not used.
 - **ASP.NET Core Minimal APIs.** Each module registers its own route group (`/api/identity/...`).
 - **Errors** use ProblemDetails (RFC 9457) with a stable machine-readable `code` (e.g. `identity.invite_expired`). The API never returns human-readable text; clients translate codes.
-- **Validation** uses the built-in .NET 10 Minimal API validation.
+- **Validation** uses DataAnnotations on request types, run by a shared endpoint filter. The built-in .NET 10 Minimal API validation skips request types declared in module assemblies (verified 2026-09-24), so it is not used.
 - **OpenAPI** is generated from code and is the single contract for all clients.
 - **Modular monolith.** One process, one database. Each module is its own project with a public interface; modules call each other only through that interface. Architecture tests fail the build if a module references another module's internals. No MediatR.
 - **Data: PostgreSQL + EF Core (Npgsql).** One schema and one DbContext with its own migrations per module (`identity` in this sub-project). `jsonb` is available for later flexible templates but not used here.

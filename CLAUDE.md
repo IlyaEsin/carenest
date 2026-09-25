@@ -1,0 +1,41 @@
+# CareNest
+
+Platform that automates an independent consultant's work with parents; the first domain is infant and toddler sleep. Specs: `docs/superpowers/specs`. Plans: `docs/superpowers/plans`.
+
+## Stack
+
+- .NET 10, ASP.NET Core Minimal APIs, EF Core + PostgreSQL (Npgsql), NodaTime, ASP.NET Core Identity (password-less), .NET Aspire 13
+- Tests: xUnit v3, Shouldly, Testcontainers (PostgreSQL), NetArchTest
+- Frontend (from Foundation plan 2): Vite, React, TypeScript, pnpm workspace in `web/`
+
+## Commands
+
+- Build: `dotnet build CareNest.slnx`
+- All tests (Docker must be running): `dotnet test CareNest.slnx`
+- One project: `dotnet test tests/CareNest.Identity.Tests`
+- Run locally (PostgreSQL, Mailpit, migrations, API, Aspire dashboard): `dotnet run --project src/CareNest.AppHost`
+- New Identity migration: `dotnet ef migrations add <Name> --project src/Modules/CareNest.Identity --output-dir Persistence/Migrations --namespace CareNest.Identity.Persistence.Migrations`
+
+## Layout and module boundaries
+
+- `src/CareNest.Api` is the host only: startup, middleware, module registration. No business logic.
+- `src/CareNest.SharedKernel` holds primitives every module may use; it depends on no module.
+- `src/Modules/CareNest.<Module>` is one project per module. Only types in the module's root namespace are public (the `<Module>Module` entry point and contracts); everything else is `internal`. Modules never reference each other; a cross-module call goes through a public interface in the callee's root namespace. Architecture tests enforce this.
+- Each module owns one PostgreSQL schema and one DbContext with its own migrations.
+- Migrations never run at API startup: `CareNest.MigrationService` applies them locally, a deploy step applies them in production.
+
+## Standing rules (checked in review)
+
+1. Consultant-owned data: every row a consultant owns implements `IConsultantOwned`, and the module DbContext calls `ApplyConsultantQueryFilters`. Any `IgnoreQueryFilters()` needs a comment saying why the query is safe.
+2. Time: NodaTime only (`Instant`, `LocalDateTime` plus an IANA zone id, injected `IClock`). No `DateTime` or `DateTimeOffset` in domain or persistence code.
+3. No UI text outside the i18n dictionaries. The API returns stable error codes (`code` in ProblemDetails, e.g. `identity.invite_expired`), never human-readable text.
+4. No personal data about parents or children in logs or traces. Log ids only.
+5. Account deletion removes all personal data. Every new table holding personal data must be covered by account deletion and by its test.
+
+## Conventions
+
+- Errors: `ApiError(code, status)` plus `.ToProblem()`. Validation: DataAnnotations on the request type plus `.WithRequestValidation<T>()` on the endpoint (the built-in .NET 10 validation does not see types declared in module assemblies).
+- Tests: HTTP behaviour in `CareNest.Api.IntegrationTests` (real PostgreSQL via Testcontainers, fake clock, fake email sender); pure logic in the module's unit test project.
+- Tracking: GitHub Issues. Branches `feature/cn-<issue>-<slug>`; spec and plan files `cn-<issue>-<slug>.md` (no issue: `<slug>.md`).
+- Writing: plain hyphen `-`, never em or en dashes. Code comments: one dry sentence, why not what.
+- Secrets never enter the repo. Local: `dotnet user-secrets`. Production: Key Vault.
