@@ -135,6 +135,20 @@ public class EmailSignInTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Mailbox_with_a_display_name_is_rejected_and_nothing_is_sent()
+    {
+        var local = $"anna-{Guid.NewGuid():N}";
+        var email = $"{local}@example.test";
+
+        var start = await factory.CreateHttpsClient().PostAsJsonAsync("/api/identity/email/start",
+            new { email = $"Anna <{email}>", callbackUrl = EmailCallbackUrl, language = "en", timeZone = "UTC" });
+
+        await start.ShouldBeProblemAsync(HttpStatusCode.BadRequest, "validation_failed");
+        (await start.Content.ReadAsStringAsync()).ShouldContain("\"email\"");
+        factory.Emails.SentTo(email).ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task Link_mode_requires_a_signed_in_user()
     {
         var start = await factory.CreateHttpsClient().PostAsJsonAsync("/api/identity/email/start",

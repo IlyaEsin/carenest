@@ -10,7 +10,7 @@ namespace CareNest.Identity.Endpoints;
 
 internal sealed record EmailStartRequest
 {
-    [Required, EmailAddress, StringLength(256)]
+    [Required, PlainEmail, StringLength(256)]
     public required string Email { get; init; }
 
     [Required, StringLength(2048)]
@@ -71,7 +71,7 @@ internal sealed record UpdateProfileRequest
 
 internal sealed record CreateConsultantRequest
 {
-    [Required, EmailAddress, StringLength(256)]
+    [Required, PlainEmail, StringLength(256)]
     public required string Email { get; init; }
 
     [Required, StringLength(100, MinimumLength = 1)]
