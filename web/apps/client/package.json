@@ -1,0 +1,31 @@
+{
+  "name": "@carenest/client",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@carenest/api-client": "workspace:*",
+    "@carenest/i18n": "workspace:*",
+    "@carenest/ui": "workspace:*",
+    "@tanstack/react-query": "5.103.2",
+    "@tanstack/react-router": "1.170.39",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-i18next": "17.0.15"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@tanstack/router-plugin": "1.168.40",
+    "@vite-pwa/assets-generator": "1.0.4",
+    "@vitejs/plugin-react": "6.1.1",
+    "tailwindcss": "4.3.3",
+    "vite": "8.3.1",
+    "vite-plugin-pwa": "1.3.0"
+  }
+}

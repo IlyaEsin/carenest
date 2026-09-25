@@ -311,6 +311,17 @@ YouTube (RU): `i18next react локализация`
 Официальная документация: https://tailwindcss.com/docs, https://www.radix-ui.com/primitives, https://ui.shadcn.com/, https://mswjs.io/docs/
 YouTube (EN): `Tailwind CSS v4 crash course`, `shadcn ui tutorial`, `MSW mock service worker tutorial`
 
+### 17.7 Vite, React, TanStack Router и Query
+
+**Vite** - dev-сервер и сборщик: мгновенно перезагружает изменения, собирает продакшен-бандл. В разработке Vite проксирует `/api` на API, поэтому для браузера это один адрес и сессионная cookie остаётся "своей"; в проде адрес API задаётся переменной `VITE_API_BASE_URL`. **React** - библиотека интерфейса. **TanStack Router** - типизированная маршрутизация: страница = файл в `src/routes/` (`invite.$token.tsx` - это `/invite/:token`), защищённые страницы лежат под `_authed` и без сессии уводят на `/sign-in?next=...`. **TanStack Query** кэширует ответы API; хуки для него генерирует orval (раздел 17.2).
+
+### 17.8 PWA
+
+Приложение родителя - **PWA** (`vite-plugin-pwa`): у него есть манифест и иконки, его можно установить на телефон как приложение. Service worker кэширует только оболочку приложения, запросы к API всегда идут в сеть. Иконки генерируются при сборке из `public/icon.svg`.
+
+Официальная документация: https://vite.dev/guide/, https://react.dev/, https://tanstack.com/router/latest/docs, https://tanstack.com/query/latest/docs, https://vite-pwa-org.netlify.app/guide/
+YouTube (EN): `TanStack Router tutorial`, `TanStack Query v5 tutorial`, `vite-plugin-pwa tutorial`
+
 ## 18. Что почитать и посмотреть
 
 **.NET 10 / ASP.NET Core / Minimal API**
