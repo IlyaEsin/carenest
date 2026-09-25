@@ -173,6 +173,8 @@ dotnet user-secrets --project src/CareNest.Api set "Identity:TelegramBotName" "<
 
 где `<Name>` - `Google`, `Yandex` или `VkId` (см. `src/Modules/CareNest.Identity/External/ExternalProviders.cs`).
 
+Redirect URI (callback), который нужно зарегистрировать в консоли провайдера: `/api/identity/signin-<provider>` в нижнем регистре (`signin-google`, `signin-yandex`, `signin-vkid`). Локально фронтенд ходит к API через прокси Vite, поэтому с точки зрения браузера и провайдера хост - это хост самого приложения, а не API: чтобы настоящие Google/Yandex/VK ID реально сработали локально, в консоли провайдера нужно зарегистрировать `http://localhost:5173/api/identity/signin-<provider>` (родительское приложение) и `http://localhost:5174/api/identity/signin-<provider>` (кабинет консультанта). В продакшене регистрируется один адрес - origin самого API (`https://api.<domain>/api/identity/signin-<provider>`, раздел "Notes for plan 3" в плане).
+
 ## 11. .NET Aspire
 
 **.NET Aspire** - набор инструментов Microsoft для локальной разработки распределённых приложений: он поднимает связанные сервисы (базу, очереди, другие процессы) одной командой, настраивает между ними service discovery, прокидывает переменные окружения и даёт единый дашборд с логами и трассировками.
@@ -276,7 +278,7 @@ GitHub Actions workflow `.github/workflows/backend.yml` запускается �
 `main` защищён: изменения попадают туда только через pull request с зелёным CI.
 
 Ещё два workflow:
-- `.github/workflows/frontend.yml` - в `web/`: `pnpm install --frozen-lockfile`, линтер, проверка типов, тесты Vitest (включая проверку одинаковых ключей RU/EN и перевода каждого кода ошибки), сборка обоих приложений и проверка, что сгенерированный клиент API совпадает с `openapi.json`. Вместе с тестом `OpenApiContractTests` в backend-workflow это даёт цепочку "код API -> openapi.json -> клиент".
+- `.github/workflows/frontend.yml` - в `web/`: `pnpm install --frozen-lockfile`, линтер, проверка типов, тесты Vitest (включая проверку одинаковых ключей RU/EN и перевода каждого кода ошибки), сборка обоих приложений, проверка, что сборка не изменила закоммиченные `routeTree.gen.ts` (их генерирует плагин TanStack Router при сборке - расхождение означает, что дерево маршрутов забыли перегенерировать и закоммитить), и проверка, что сгенерированный клиент API совпадает с `openapi.json`. Вместе с тестом `OpenApiContractTests` в backend-workflow это даёт цепочку "код API -> openapi.json -> клиент".
 - `.github/workflows/e2e.yml` - ставит .NET, Node, pnpm и Chromium, доверяет dev-сертификату и запускает сценарии Playwright; Playwright сам поднимает весь стек через Aspire AppHost (Docker на раннерах GitHub есть). При падении отчёт Playwright прикладывается к запуску.
 
 ## 16. Azure (план 3, ещё не настроен и не оплачен)
