@@ -223,6 +223,23 @@ public class EmailSignInTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task A_browser_with_its_own_nonce_cannot_complete_someone_elses_link()
+    {
+        var emailA = NewEmail();
+        var requesterA = factory.CreateHttpsClient();
+        await StartAsync(requesterA, emailA);
+        var tokenA = factory.Emails.LatestTokenFor(emailA);
+
+        var requesterB = factory.CreateHttpsClient();
+        await StartAsync(requesterB, NewEmail());
+
+        var completeByB = await requesterB.PostAsJsonAsync("/api/identity/email/complete", new { token = tokenA });
+
+        await completeByB.ShouldBeProblemAsync(HttpStatusCode.Forbidden, "identity.magic_link_other_browser");
+        (await requesterA.PostAsJsonAsync("/api/identity/email/complete", new { token = tokenA })).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
     public async Task Start_sets_a_path_scoped_http_only_nonce_cookie()
     {
         var start = await StartAsync(factory.CreateHttpsClient(), NewEmail());
