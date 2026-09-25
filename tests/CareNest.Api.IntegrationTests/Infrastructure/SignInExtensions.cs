@@ -34,11 +34,11 @@ internal static class SignInExtensions
         return await response.ReadAsAsync<MeResponse>();
     }
 
-    public static async Task<HttpClient> CreateConsultantClientAsync(this ApiFactory factory)
+    public static async Task<HttpClient> CreateConsultantClientAsync(this ApiFactory factory, string timeZone = "Europe/Moscow")
     {
         var email = NewEmail("consultant");
         var admin = await factory.GetAdminClientAsync();
-        var created = await admin.PostAsJsonAsync("/api/identity/admin/consultants", new { email, displayName = "Consultant" });
+        var created = await admin.PostAsJsonAsync("/api/identity/admin/consultants", new { email, displayName = "Consultant", language = "ru", timeZone });
         created.StatusCode.ShouldBe(HttpStatusCode.OK);
         return await factory.SignedInClientAsync(email);
     }

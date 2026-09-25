@@ -242,6 +242,29 @@
         }
       }
     },
+    "/api/identity/me/consultants": {
+      "get": {
+        "tags": [
+          "Identity"
+        ],
+        "operationId": "ListMyConsultants",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConsultantResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/identity/invitations/accept": {
       "post": {
         "tags": [
@@ -428,6 +451,8 @@
         "required": [
           "userId",
           "displayName",
+          "language",
+          "timeZone",
           "linkedAt"
         ],
         "type": "object",
@@ -439,6 +464,36 @@
           "displayName": {
             "type": "string"
           },
+          "language": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "linkedAt": {
+            "$ref": "#/components/schemas/Instant"
+          }
+        }
+      },
+      "ConsultantResponse": {
+        "required": [
+          "userId",
+          "displayName",
+          "timeZone",
+          "linkedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          },
           "linkedAt": {
             "$ref": "#/components/schemas/Instant"
           }
@@ -447,7 +502,9 @@
       "CreateConsultantRequest": {
         "required": [
           "email",
-          "displayName"
+          "displayName",
+          "language",
+          "timeZone"
         ],
         "type": "object",
         "properties": {
@@ -459,6 +516,12 @@
           "displayName": {
             "maxLength": 100,
             "minLength": 1,
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "timeZone": {
             "type": "string"
           }
         }

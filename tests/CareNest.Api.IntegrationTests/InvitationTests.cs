@@ -66,6 +66,50 @@ public class InvitationTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Client_list_shows_the_parent_language_and_time_zone()
+    {
+        // The consultant is created with Russian; the parent chose English, so both sides differ.
+        var consultant = await factory.CreateConsultantClientAsync();
+        var invitation = await CreateInvitationAsync(consultant);
+        var parent = factory.CreateHttpsClient();
+        await parent.SignInWithEmailAsync(factory, NewEmail(), language: "en", timeZone: "Asia/Vladivostok");
+
+        await AcceptAsync(parent, invitation);
+
+        var client = (await (await consultant.GetAsync("/api/identity/clients")).ReadAsAsync<List<ClientResponse>>()).Single();
+        client.Language.ShouldBe("en");
+        client.TimeZone.ShouldBe("Asia/Vladivostok");
+        (await consultant.GetMeAsync()).Language.ShouldBe("ru");
+    }
+
+    [Fact]
+    public async Task Admin_sets_the_new_consultant_language_and_time_zone()
+    {
+        var consultant = await factory.CreateConsultantClientAsync(timeZone: "Asia/Yekaterinburg");
+
+        var me = await consultant.GetMeAsync();
+        me.TimeZone.ShouldBe("Asia/Yekaterinburg");
+        me.Language.ShouldBe("ru");
+    }
+
+    [Fact]
+    public async Task Parent_sees_linked_consultants_with_their_time_zone_and_nobody_else()
+    {
+        var consultant = await factory.CreateConsultantClientAsync(timeZone: "Europe/Moscow");
+        var invitation = await CreateInvitationAsync(consultant);
+        var parent = await factory.SignedInClientAsync(NewEmail());
+        await AcceptAsync(parent, invitation);
+        var otherParent = await factory.SignedInClientAsync(NewEmail());
+
+        var mine = await (await parent.GetAsync("/api/identity/me/consultants")).ReadAsAsync<List<ConsultantResponse>>();
+        var others = await (await otherParent.GetAsync("/api/identity/me/consultants")).ReadAsAsync<List<ConsultantResponse>>();
+
+        mine.Single().UserId.ShouldBe((await consultant.GetMeAsync()).Id);
+        mine.Single().TimeZone.ShouldBe("Europe/Moscow");
+        others.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task Used_invitation_is_rejected()
     {
         var consultant = await factory.CreateConsultantClientAsync();

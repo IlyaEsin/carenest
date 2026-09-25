@@ -77,7 +77,7 @@ public class AccountDeletionTests(ApiFactory factory)
     {
         var email = NewEmail("consultant");
         var admin = await factory.GetAdminClientAsync();
-        (await admin.PostAsJsonAsync("/api/identity/admin/consultants", new { email, displayName = "Consultant" }))
+        (await admin.PostAsJsonAsync("/api/identity/admin/consultants", new { email, displayName = "Consultant", language = "ru", timeZone = "Europe/Moscow" }))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
         var phone = await factory.SignedInClientAsync(email);
         var laptop = await factory.SignedInClientAsync(email);
