@@ -2,6 +2,7 @@ using CareNest.Identity.Accounts;
 using CareNest.Identity.Domain;
 using CareNest.Identity.Email;
 using CareNest.Identity.Endpoints;
+using CareNest.Identity.External;
 using CareNest.Identity.Persistence;
 using CareNest.Identity.Security;
 using CareNest.SharedKernel.Consultants;
@@ -39,7 +40,9 @@ public static class IdentityModule
             .AddSignInManager();
         services.Configure<SecurityStampValidatorOptions>(options => options.ValidationInterval = TimeSpan.FromMinutes(5));
 
-        services.AddAuthentication(IdentityConstants.ApplicationScheme).AddIdentityCookies();
+        var authentication = services.AddAuthentication(IdentityConstants.ApplicationScheme);
+        authentication.AddIdentityCookies();
+        ExternalProviders.Register(authentication, builder.Configuration);
         services.ConfigureApplicationCookie(ConfigureSessionCookie);
         services.AddOptions<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme)
             .Configure<IOptions<IdentityModuleOptions>>((cookie, identity) => cookie.Cookie.Domain = identity.Value.CookieDomain);
@@ -64,6 +67,7 @@ public static class IdentityModule
         var group = app.MapGroup("/api/identity").WithTags("Identity");
         group.MapEmailSignIn();
         group.MapProfile();
+        group.MapExternalSignIn();
         return app;
     }
 
